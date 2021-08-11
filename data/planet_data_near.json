@@ -1,0 +1,30 @@
+[
+  {
+    "description": "Metallosilicate planet",
+    "type": "IpMSi",
+    "mass_min": 0.02,
+    "mass_max": 14,
+    "prob": 400
+  },
+  {
+    "description": "Silicate planet",
+    "type": "IpSi",
+    "mass_min": 0.02,
+    "mass_max": 14,
+    "prob": 5
+  },
+  {
+    "description": "Hydrosilicate planet",
+    "type": "IpHSi",
+    "mass_min": 0.02,
+    "mass_max": 14,
+    "prob": 50
+  },
+  {
+    "description": "Carbonite planet",
+    "type": "IpC",
+    "mass_min": 0.02,
+    "mass_max": 14,
+    "prob": 4
+  }
+]

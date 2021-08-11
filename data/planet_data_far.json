@@ -1,0 +1,58 @@
+[
+  {
+    "description": "Metallosilicate planet",
+    "type": "FpMSi",
+    "mass_min": 0.02,
+    "mass_max": 14,
+    "prob": 100
+  },
+  {
+    "description": "Silicate planet",
+    "type": "FpSi",
+    "mass_min": 0.02,
+    "mass_max": 14,
+    "prob": 5
+  },
+  {
+    "description": "Hydrosilicate planet",
+    "type": "FpHSi",
+    "mass_min": 0.02,
+    "mass_max": 14,
+    "prob": 50
+  },
+  {
+    "description": "Carbonite planet",
+    "type": "FpC",
+    "mass_min": 0.02,
+    "mass_max": 14,
+    "prob": 4
+  },
+  {
+    "description": "Ice planet",
+    "type": "FpH2Ow",
+    "mass_min": 0.02,
+    "mass_max": 14,
+    "prob": 173
+  },
+  {
+    "description": "Hydrogen Gas Giant",
+    "type": "FgH",
+    "mass_min": 10,
+    "mass_max": 4134,
+    "prob": 115
+  },
+  {
+    "description": "Carbon Monoxide Gas Giant",
+    "type": "FgCO",
+    "mass_min": 10,
+    "mass_max": 4134,
+    "prob": 115
+  },
+  {
+    "description": "Helium Gas Giant",
+    "type": "FgHe",
+    "mass_min": 10,
+    "mass_max": 4134,
+    "prob": 115
+  }
+]

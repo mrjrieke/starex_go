@@ -1,0 +1,7 @@
+# Config
+logging:
+  logdir: log
+  log_level: DEBUG
+  logfile_name: starex.log
+  logging_stdout: true
+  logging_file: false

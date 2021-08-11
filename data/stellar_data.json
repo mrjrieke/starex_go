@@ -1,0 +1,142 @@
+{ "massive": {
+    "description": "objects that span much more than one system",
+    "num_probs": [1],
+    "types": [{
+      "type": "smbh",
+      "description": "Supermassive Black Hole",
+      "mass_min": 30000,
+      "mass_max": 30000000000,
+      "prob": 1,
+      "lum": 0,
+      "color": "#FFFFFF"
+    }]
+  },
+  "huge": {
+    "description": "objects that occupy a complete system",
+    "num_probs": [99, 1],
+    "types": [{
+        "type": "imbh",
+        "description": "Intermediate Black Hole",
+        "prob": 5,
+        "mass_min": 30,
+        "mass_max": 300000,
+        "luminosity": 0,
+        "temperature": 0,
+        "radius": 0,
+        "color_code": "#000000" 
+      },
+      { "type": "sg",
+        "description": "Supergiant Star - wip",
+        "mass_min": 1.35,
+        "mass_max": 3,
+        "prob": 0,
+        "types": [ ]
+      }] 
+  },
+  "big": {
+    "description": "objects that most of a system spins around (e.g. suns)",
+    "num_probs": [1, 60, 35, 10, 3, 1],
+    "types": [
+      {
+        "description": "Star",
+        "prob": 10,
+        "type": "star",
+        "types": [ ]
+      },
+      {
+        "description": "White Dwarf",
+        "prob": 3,
+        "type": "wd",
+        "types": [ ]
+      },
+      {
+        "type": "sbh",
+        "description": "Stellar Black Hole",
+        "prob": 2,
+        "mass_min": 3.0,
+        "mass_max": 30.0,
+        "radius": 0,
+        "temperature": 0,
+        "luminosity": 0,
+        "color_code": "#000000"
+      },
+      {
+        "type": "sns",
+        "description": "Stellar Neutron Star (wip)",
+        "prob": 1,
+        "mass_min": 1.35,
+        "mass_max": 3,
+        "radius": 0,
+        "temperature": 0,
+        "luminosity": 1000,
+        "color_code": "#EEEEFF"
+       }
+      ]
+  },
+  "medium": {
+    "description": "objects that spin around a big object (e.g. planets)",
+    "num_probs": [500,20,30,50,50,50,40,40,40,30,30,30,20,20,20,10,10,5,3,1,1],
+    "types": [
+      {
+        "type": "planet",
+        "description": "Planet",
+        "prob": 100,
+        "variants": {
+           "param": "hab_zone",
+           "limits": [0.8,1.2]
+        },
+        "types": [[],[],[] ]
+      },
+      {
+        "type": "bd",
+        "description": "brown dwarf",
+        "prob": 3,
+        "types": [ ]
+      },
+      {
+        "type": "ab",
+        "description": "asteroid belt",
+        "prob": 10,
+        "types": [
+        {
+          "description": "general asteroid belt",
+          "type": "gab",
+          "radius": null,
+          "mass_min": 0.02,
+          "mass_max": 0.5,
+          "prob": 10,
+          "luminosity": 0,
+          "color_code": "#000000",
+          "rad_exponent": 1.02,
+          "rad_multiplier": 0.29
+        }]
+      }
+    ]
+  },
+  "small": {
+    "description": "objects that spin around a regular object (e.g. moons)",
+    "num_probs": [5, 10, 7, 1],
+    "types": [ 
+      {
+        "type": "moon",
+        "description": "Moon",
+        "prob": [10, 5],
+        "types": [ ]
+      },
+      {
+        "type": "ring",
+        "description": "Planetary Ring",
+        "prob": [1, 5],
+        "types": [ ]
+      }
+    ] 
+  },
+  "ds-ptype":{
+    "description": "number of planets around a single big object in a binary system",
+    "num_probs": [7, 4, 3, 1]
+  },
+  "ds-stype":{
+    "description": "number of planets around both big objects in a binary system",
+    "num_probs": [5, 4, 1]
+  }
+}

@@ -1,0 +1,10 @@
+galaxy_conf:
+  dimensions: 
+    num_stars: 50000
+    diameter: 10000
+    thickness: 200
+  arms:
+    rad_len: 6.28
+    inner_r: 800
+    outer_r: 150
+    elipse_factor: 0.3

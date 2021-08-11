@@ -1,0 +1,29 @@
+{
+    "go.alternateTools": {
+
+    },
+    "go.buildFlags": [
+        "--gcflags='-I C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/include'",
+        "--ldflags='-L C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/lib-vc2019/'"
+    ],
+    "go.testFlags": ["-v"],
+    "go.useLanguageServer": true,
+    "go.delveConfig": {
+        "dlvLoadConfig": {
+            "followPointers": true,
+            "maxVariableRecurse": 1,
+            "maxStringLen": 64,
+            "maxArrayValues": 64,
+            "maxStructFields": -1
+        },
+        "apiVersion": 2,
+        "showGlobalVariables": false,
+        "debugAdapter": "legacy",
+        "substitutePath": []
+    },
+    "go.toolsEnvVars": {
+        "CGO_LDFLAGS": "-L C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/lib-vc2019/ -static -lglfw3dll",
+        "CGO_CFLAGS": "-I C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/include/",
+    }
+
+}

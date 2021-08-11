@@ -1,0 +1,59 @@
+[
+  {
+    "description": "Metallosilicate planet",
+    "type": "MpMSi",
+    "mass_min": 0.02,
+    "mass_max": 14,
+    "prob": 400
+  },
+  {
+    "description": "Silicate planet",
+    "type": "MpSi",
+    "mass_min": 0.02,
+    "mass_max": 14,
+    "prob": 5
+  },
+  {
+    "description": "Hydrosilicate planet",
+    "type": "MpHSi",
+    "mass_min": 0.02,
+    "mass_max": 14,
+    "prob": 50
+  },
+  {
+    "description": "Carbonite planet",
+    "type": "MpC",
+    "mass_min": 0.02,
+    "mass_max": 14,
+    "prob": 4
+  },
+  {
+    "description": "Water planet",
+    "type": "MpH2Oi",
+    "mass_min": 0.02,
+    "mass_max": 14,
+    "prob": 173
+  },
+
+  {
+    "description": "Hydrogen Gas Giant",
+    "type": "MgH",
+    "mass_min": 10,
+    "mass_max": 4134,
+    "prob": 45
+  },
+  {
+    "description": "Carbon Monoxide Gas Giant",
+    "type": "MgCO",
+    "mass_min": 10,
+    "mass_max": 4134,
+    "prob": 45
+  },
+  {
+    "description": "Helium Gas Giant",
+    "type": "MgHe",
+    "mass_min": 10,
+    "mass_max": 4134,
+    "prob": 45
+  }
+]

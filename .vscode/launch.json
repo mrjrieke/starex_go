@@ -10,10 +10,13 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}",
+  //          "buildFlags": "-gcflags='-I C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/include' -ldflags='-L C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/lib-vc2019/'",
+            //"buildFlags": "-gcflags='-I C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/include' -ldflags='-L C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/lib-vc2019/'",
+//            "buildFlags": "-ldflags='-L C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/lib-vc2019/'",
             "env": {
                 // --- examples for later static linking:
-                //"CGO_CFLAGS": "-I C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/include/",
-                //"CGO_LDFLAGS": "-L C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/lib-vc2019/ -static -lglfw3dll -llibvorbis"
+             //   "CGO_CFLAGS": "-I C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/include/",
+           //     "CGO_LDFLAGS": "-L C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/lib-vc2019/ -static -lglfw3dll",
                 // --- Adding the dlls from the library path
                 "Path": "${env:Path};${workspaceFolder}\\lib\\"
             }
