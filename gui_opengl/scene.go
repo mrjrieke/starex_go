@@ -1,52 +1,54 @@
 package gui_opengl
 
-
 import (
 	"math"
+
+	"github.com/Jest0r/starex_go/galaxy"
 )
 
 type Scene struct {
 	Points []float32
 	Colors []float32
-	Lums   []float32
+	Lums   []float64
 }
 
-func (sc *Scene) LoadData(galaxy Galaxy, scaleFactor float32) {
+func (sc *Scene) LoadData(galaxy *galaxy.Galaxy, scaleFactor float32) {
 	// array for the stars and for the colors separately, for rendering reasons
-	sc.Points = make([]float32, (galaxy.meta.NumSystems)*3)
-	sc.Colors = make([]float32, (galaxy.meta.NumSystems)*4)
-	sc.Lums = make([]float32, (galaxy.meta.NumSystems))
+	sc.Points = make([]float32, (galaxy.SysCount)*3)
+	sc.Colors = make([]float32, (galaxy.SysCount)*4)
+	sc.Lums = make([]float64, (galaxy.SysCount))
 
-	for i, s := range galaxy.stars {
+	for i, s := range galaxy.Systems {
 		sc.Lums[i] = s.Lum
 	}
 	//fmt.Println(sc.Lums[:200])
-	sc.normalizeLum2(5)
+	 sc.normalizeLum2(5)
+	//sc.normalizeLum(5)
 	//fmt.Println(sc.Lums[:200])
 
 	lum_hist := make([]int, 256)
 	_ = lum_hist
 
-	for i, sys := range galaxy.stars {
+	for i, sys := range galaxy.Systems {
 		// switch Y and Z from original data to map the OpenGL coord system.
 		sc.Points[3*i] = float32(sys.Coords.X) / scaleFactor
 		sc.Points[3*i+1] = float32(sys.Coords.Z) / scaleFactor
 		sc.Points[3*i+2] = float32(sys.Coords.Y) / scaleFactor
 
-		sc.Colors[4*i] = float32(galaxy.stars[i].Color.r) / 255
-		sc.Colors[4*i+1] = float32(galaxy.stars[i].Color.g) / 255
-		sc.Colors[4*i+2] = float32(galaxy.stars[i].Color.b) / 255
+		sc.Colors[4*i] = float32(galaxy.Systems[i].Color.R) / 255
+		sc.Colors[4*i+1] = float32(galaxy.Systems[i].Color.G) / 255
+		sc.Colors[4*i+2] = float32(galaxy.Systems[i].Color.B) / 255
 		// using this for Lum, because for some reason a separate array is only half read
-		sc.Colors[4*i+3] = sc.Lums[i]
+		sc.Colors[4*i+3] = float32(sc.Lums[i])
 	}
 }
 
-func (sc *Scene) normalizeLum(maxvalue float32) {
+func (sc *Scene) normalizeLum(maxvalue float64) {
 	// find max
-	var maxlum float32
-	var lumDivisor float32
-	minLumIdx := float32(13) / float32(256)
-	maxLumIdx := float32(199) / float32(256)
+	var maxlum float64
+	var lumDivisor float64
+	minLumIdx := float64(13) / float64(256)
+	maxLumIdx := float64(199) / float64(256)
 	for _, s := range sc.Lums {
 		if s > maxlum {
 			maxlum = s
@@ -54,7 +56,7 @@ func (sc *Scene) normalizeLum(maxvalue float32) {
 	}
 	lumDivisor = maxlum / maxvalue
 	for i, l := range sc.Lums {
-		sc.Lums[i] = float32(math.Pow((float64(l / lumDivisor)), 0.1))
+		sc.Lums[i] = math.Pow((float64(l / lumDivisor)), 0.1)
 		//sc.Lums[i] = float32(math.Pow((float64(l / maxlum)), 0.1))
 		if sc.Lums[i] < minLumIdx {
 			sc.Lums[i] = minLumIdx
@@ -79,13 +81,13 @@ func (sc *Scene) normalizeLum(maxvalue float32) {
 
 func (sc *Scene) normalizeLum2(maxvalue float32) {
 	// find max
-	var maxlum float32
+	var maxlum float64
 	for _, s := range sc.Lums {
 		if s > maxlum {
 			maxlum = s
 		}
 	}
 	for i, l := range sc.Lums {
-		sc.Lums[i] = float32(math.Pow(float64(l), 0.1))
+		sc.Lums[i] = math.Pow(float64(l), 0.1)
 	}
 }

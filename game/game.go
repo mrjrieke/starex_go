@@ -40,11 +40,10 @@ func (c *Config) ReadConfig(filename string) {
 	}
 }
 
-
 // Holding all needed Game data
 type Game struct {
 	Title  string
-	Gui gui_opengl.Gui
+	Gui    gui_opengl.Gui
 	config Config
 	Galaxy galaxy.Galaxy
 }
@@ -56,17 +55,29 @@ func (g *Game) Init() {
 	g.config.ReadConfig("cfg/config.yaml")
 	fmt.Println(g.config)
 
-	g.Galaxy.Init(1000, 20000, 2000)
-	g.Galaxy.Create()
+	// TODO: parameters should go into Create()
+	// TODO: Load should also be done here, and not directly in the GUI
+	//g.Galaxy.Init(200000, 20000, 2000)
+	g.Galaxy.Init()
+	g.Gui.Init()
+	g.Gui.Galaxy = &g.Galaxy
+
+	// either Create()...
+	//g.Galaxy.Create()
+	g.Galaxy.Create(200000, 20000, 2000)
+	// ... or LoadFromFile()
+	//g.Galaxy.LoadFromFile("saves/galaxy2")
 
 	fmt.Println(g.Galaxy.SysCount)
-	//	fmt.Printf("%v\n", g.galaxy.Systems[:33])
-	//	fmt.Printf("%v\n", g.galaxy.Systems)
+
+	g.Gui.PrepareScene()
+
 }
 
 // Game mainloop. Loop is handled within the function
 func (g *Game) Mainloop() {
 	fmt.Println("Skipping Mainloop")
+	g.Gui.Mainloop()
 }
 
 // Game destructor

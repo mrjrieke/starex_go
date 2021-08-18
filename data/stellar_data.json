@@ -29,7 +29,7 @@
         "description": "Supergiant Star - wip",
         "mass_min": 1.35,
         "mass_max": 3,
-        "prob": 0,
+        "prob": 1,
         "types": [ ]
       }] 
   },

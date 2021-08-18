@@ -260,7 +260,7 @@ func CheckFramebufferStatus() bool {
 	return fbs == gl.FRAMEBUFFER_COMPLETE
 }
 
-func FeedLumBuffer(lums []float32) uint32 {
+func FeedLumBuffer(lums []float64) uint32 {
 	var vbo uint32
 	GlClearError()
 	gl.GenBuffers(1, &vbo)
@@ -317,7 +317,7 @@ func UniformFloat(varname int32, data float32) {
 	GlCheckError("UniformFloat")
 }
 
-func DrawDots(data_len int) {
+func DrawDots(data_len int32) {
 	GlClearError()
 	gl.DrawArrays(gl.POINTS, 0, int32(data_len))
 	GlCheckError("DrawDots")

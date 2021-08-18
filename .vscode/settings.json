@@ -2,10 +2,11 @@
     "go.alternateTools": {
 
     },
-    "go.buildFlags": [
+/*    "go.buildFlags": [
         "--gcflags='-I C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/include'",
         "--ldflags='-L C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/lib-vc2019/'"
     ],
+    */
     "go.testFlags": ["-v"],
     "go.useLanguageServer": true,
     "go.delveConfig": {

@@ -5,7 +5,6 @@ import (
 	"log"
 	"math"
 	"os"
-	//	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -13,13 +12,14 @@ import (
 	"image"
 	"image/png"
 
-	//	"./opengl"
-	//	"github.com/Jest0r/starex_go/gui_opengl"
-	//	"example.com/helmut/starex_vis_opengl/opengl"
-	"github.com/engoengine/glm"
-
 	"github.com/go-gl/gl/v4.4-core/gl"
 	"github.com/go-gl/glfw/v3.0/glfw"
+	"github.com/engoengine/glm"
+
+//	"github.com/shibukawa/nanogui-go"
+
+	"github.com/Jest0r/starex_go/galaxy"
+
 )
 
 const (
@@ -60,6 +60,7 @@ func (w *Window) Init() {
 	if err := glfw.Init(); !err {
 		panic(err)
 	}
+//	nanogui.Init()
 	// create a window mode and it's OpenGL Context
 	w.Window = InitScreen(w.Width, w.Height, w.Title, w.Fullscreen)
 
@@ -84,6 +85,7 @@ type Gui struct {
 	Cam   Camera
 	Scene Scene
 	Persp Perspective
+	//NanoGUI nanogui.Screen
 	// --- Shaders
 	Shader           ShaderData // Shader for simple display
 	BloomStep1Shader ShaderData // Step 1 for enabled lighting effect
@@ -97,7 +99,7 @@ type Gui struct {
 	uActiveWeight    int32
 	blurSteps        int
 	// -----------
-	Galaxy               Galaxy
+	Galaxy               *galaxy.Galaxy
 	pause                bool
 	DegPerSecond         float32
 	Mouse                Mouse
@@ -333,8 +335,22 @@ func (g *Gui) togglePause() {
 		g.Pause()
 	}
 }
+/*
+func (g *Gui) LoadGalaxyFromFile(filename string) {
+	// loading galaxy
+	fmt.Print("Loading Data...")
+	// reading json file into internal structure
+	g.Galaxy.Import(filename)
+//	g.Galaxy.Import("saves/galaxy2")
+	fmt.Printf("done.\nPreparing data...")
+	// loading into internal format
+	// feeding graphics card with internal format
+	g.PrepareScene()
 
-func (g *Gui) init() {
+}
+*/
+
+func (g *Gui) Init() {
 	// Init some vars
 	// 		window stuff
 	g.Win.Title = "Starex Starfield Visualizer (openGL)"
@@ -344,6 +360,10 @@ func (g *Gui) init() {
 	// Set Callbacks for Key input and Size change
 	g.setCallbacks()
 	g.BloomActive = Bloom
+
+//	g.NanoGUI.Initialize(@g.Win.Window, true)
+//	nanogui.Init()
+//	nanogui.
 
 	// get glgs version
 	glgsver := strings.Split(gl.GoStr(gl.GetString(gl.SHADING_LANGUAGE_VERSION)), ".")
@@ -382,17 +402,12 @@ func (g *Gui) init() {
 	g.uBloomBlur = 1
 
 	g.blurSteps = 6
+}
 
-	// loading galaxy
-	fmt.Print("Loading Data...")
+
+func (g *Gui) PrepareScene(){
 	start := time.Now()
-	// reading json file into internal structure
-	g.Galaxy.Import("saves/galaxy2")
-	fmt.Printf("done.\nPreparing data...")
-	// loading into internal format
-	// feeding graphics card with internal format
-	g.Scene.LoadData(g.Galaxy, float32(g.Galaxy.radius))
-
+	g.Scene.LoadData(g.Galaxy, float32(g.Galaxy.Radius))
 	// ------------------------------------------------
 	// for bloom:
 	// https://github.com/JoeyDeVries/LearnOpenGL/blob/master/src/5.advanced_lighting/7.bloom/bloom.cpp
@@ -433,7 +448,7 @@ func (g *Gui) init() {
 
 	// ------------------------------------------------
 
-	fmt.Printf("...done. (%d systems, %d ms)\n", len(g.Galaxy.stars), time.Since(start)/1000000)
+	fmt.Printf("...done. (%d systems, %d ms)\n", g.Galaxy.SysCount, time.Since(start)/1000000)
 
 	//		camera stuff
 	// this is clunky. Maybe Cam and Persp should be combineed in an 'MVP' object or so,
@@ -454,7 +469,7 @@ func (g *Gui) init() {
 
 // ----------- MAINLOOP --------------
 
-func (g *Gui) mainloop() {
+func (g *Gui) Mainloop() {
 	//		angle stuff
 	var rotPerFrameA float32 = 0
 	// timing stuff
@@ -473,7 +488,7 @@ func (g *Gui) mainloop() {
 		// if one second passed, print frame draw time
 		if time.Since(lastTime) > time.Second {
 			// print frame rate and other info
-			fmt.Printf("%d Stars. %.3f ms/frame (desired %d) - %d fps. - bloom active: %v\n", len(g.Galaxy.stars), 1000/float32(nbFrames), tick, nbFrames, g.BloomActive)
+			fmt.Printf("%d Stars. %.3f ms/frame (desired %d) - %d fps. - bloom active: %v\n", g.Galaxy.SysCount, 1000/float32(nbFrames), tick, nbFrames, g.BloomActive)
 			nbFrames = 0
 			lastTime = curTime
 		}
@@ -495,7 +510,7 @@ func (g *Gui) mainloop() {
 			GlClearError()
 
 			// draw the stars
-			DrawDots(g.Galaxy.meta.NumSystems)
+			DrawDots(g.Galaxy.SysCount)
 
 		} else {
 			g.BloomStep1Shader.SetFloat("uBrightThreshold", g.uBrightThreshold)
@@ -518,7 +533,7 @@ func (g *Gui) mainloop() {
 			mvpMatrix := GetMVPMatrix(g.Cam, g.Persp)
 			// Apply MVP (Model,View,Pre)
 			UniformMatrix(g.BloomStep1Shader.Uniforms["uMVP"], mvpMatrix)
-			DrawDots(g.Galaxy.meta.NumSystems)
+			DrawDots(g.Galaxy.SysCount)
 
 			// clear the screen
 			gl.ClearColor(0.0, 0.0, 0.0, 1.0)
