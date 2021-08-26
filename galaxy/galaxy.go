@@ -85,8 +85,8 @@ func (g *Galaxy) Create(SysTarget int32, RTarget int16, TTarget int16) {
 	//	}
 
 	// create coordinates for the 'standard spiral' form
-	g.CreateFormSpiral1()
-	//g.CreateForm2()
+	//g.CreateFormSpiral1()
+	g.CreateForm2()
 
 	// ------------------ next steps
 	// create kdtree()
@@ -363,12 +363,12 @@ func (g *Galaxy) CreateCenterObject(sys *System) {
 		n = sample(g.StellarSizeTypes.Huge.NumCpm)
 		// Is center object a huge object?
 		if n > 0 {
-			fmt.Println("Huge cpm:", g.StellarSizeTypes.Huge.Cpm)
+			//fmt.Println("Huge cpm:", g.StellarSizeTypes.Huge.Cpm)
 			objidx := sample(g.StellarSizeTypes.Huge.Cpm)
 			sys.CenterObject = StellarObject{}
 			sys.CenterObject.InitHuge(g.StellarSizeTypes.Huge.Types[objidx])
 
-			fmt.Println("- Huge Object:", sys.CenterObject)
+		//	fmt.Println("- Huge Object:", sys.CenterObject)
 			return
 		}
 		// else

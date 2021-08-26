@@ -14,7 +14,7 @@ import (
 	// > 4.4 panics on windows
 	"github.com/engoengine/glm"
 	"github.com/go-gl/gl/v4.4-core/gl"
-	"github.com/go-gl/glfw/v3.0/glfw"
+	//"github.com/go-gl/gl/v3.2-core/gl"
 )
 
 // ----- ERROR CHECKING ------
@@ -42,32 +42,6 @@ func GlCheckError(module string) bool {
 }
 
 // ---- INITS -----------------
-func InitScreen(width int, height int, title string, fullscreen bool) *glfw.Window {
-
-	var monitor *glfw.Monitor
-	var err error
-	var vidmode *glfw.VideoMode
-	_ = vidmode
-	if fullscreen {
-		monitor, err = glfw.GetPrimaryMonitor()
-		vidmode, err = monitor.GetVideoMode()
-		width = vidmode.Width
-		height = vidmode.Height
-		fmt.Println("Entering fullscreen @ ", width, " x ", height)
-	} else {
-		monitor = nil
-	}
-	window, err := glfw.CreateWindow(width, height, title, monitor, nil)
-	if err != nil {
-		fmt.Println("glfw Window cannot be created.")
-		glfw.Terminate()
-		panic(err)
-	}
-
-	// make the window's context current
-	window.MakeContextCurrent()
-	return window
-}
 
 func createTextures(amount int32, fbo uint32) [2]uint32 {
 	var tex [2]uint32
@@ -85,9 +59,13 @@ func createTextures(amount int32, fbo uint32) [2]uint32 {
 	}
 	return tex
 }
-func FeedVBOBuffer3D(positions []float32, width int32, height int32) (uint32, uint32) {
+
+var vao uint32
+
+func FeedVBOBuffer3D(positions []float32, colors []float32, width int32, height int32) (uint32, uint32, uint32, uint32) {
 	var tex uint32
 	var vbo uint32
+	var col uint32
 	var fbo uint32
 
 	gl.GenTextures(1, &tex)
@@ -130,17 +108,36 @@ func FeedVBOBuffer3D(positions []float32, width int32, height int32) (uint32, ui
 	gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0)
 	GlCheckError("Framebuffer Texture 2D")
 
+	gl.GenVertexArrays(2, &vao)
+	gl.BindVertexArray(vao)
+	GlCheckError("VBO - Bind Vertex Array")
+
 	GlClearError()
 	gl.GenBuffers(1, &vbo)
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
+	GlCheckError("VBO - Bind Buffer")
 	gl.BufferData(gl.ARRAY_BUFFER, 4*len(positions), gl.Ptr(positions), gl.STATIC_DRAW)
+	GlCheckError("VBO - buffer data")
 	// describe what the positions array actually mean
-	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 0, nil)
+	GlClearError()
 	gl.EnableVertexAttribArray(0)
-	// Texture buffer
+	GlCheckError("VBO - Enable Vertex Array")
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 0, nil)
+	GlCheckError("VBO - Enable Buffer")
+
+	// color buffer
+	GlClearError()
+	gl.GenBuffers(1, &col)
+	gl.BindBuffer(gl.ARRAY_BUFFER, col)
+	gl.BufferData(gl.ARRAY_BUFFER, 4*len(colors), gl.Ptr(colors), gl.STATIC_DRAW)
+	GlCheckError("Bind Color Buffer")
+
+	GlClearError()
+	gl.EnableVertexAttribArray(1)
+	gl.VertexAttribPointer(1, 4, gl.FLOAT, false, 0, nil)
 	GlCheckError("feedVBOBuffer3D")
 
-	return tex, fbo
+	return tex, col, fbo, vbo
 
 }
 
@@ -215,9 +212,10 @@ func CreatePingPongFBOs(numBufs uint8, w int32, h int32) ([]uint32, []uint32) {
 // lines 390 - 418
 var quadVAO uint32
 var quadVBO uint32
+
 func RenderQuad() {
 	if quadVAO == 0 {
-//		fmt.Println("Init Quad")
+		//		fmt.Println("Init Quad")
 
 		quadVertices := []float32{-1, 1, 0, 0, 1,
 			-1, -1, 0, 0, 0,
@@ -230,7 +228,7 @@ func RenderQuad() {
 		gl.GenBuffers(1, &quadVBO)
 		gl.BindBuffer(gl.ARRAY_BUFFER, quadVBO)
 		gl.BufferData(gl.ARRAY_BUFFER, 4*len(quadVertices), gl.Ptr(quadVertices), gl.STATIC_DRAW)
-//		fmt.Println("quad size", 4*len(quadVertices))
+		//		fmt.Println("quad size", 4*len(quadVertices))
 
 		gl.EnableVertexAttribArray(0)
 		gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 5*4, nil)
@@ -291,7 +289,7 @@ func SelectIBO(ibo uint32) {
 }
 
 func GetUniformLoc(program uint32, varname string) int32 {
-//	fmt.Println("looking for uniform name ", varname)
+	//	fmt.Println("looking for uniform name ", varname)
 	loc := gl.GetUniformLocation(program, gl.Str(varname+"\x00"))
 	if loc == -1 {
 		fmt.Println("Uniform not found!", varname)
@@ -319,6 +317,7 @@ func UniformFloat(varname int32, data float32) {
 
 func DrawDots(data_len int32) {
 	GlClearError()
+	gl.BindVertexArray(vao)
 	gl.DrawArrays(gl.POINTS, 0, int32(data_len))
 	GlCheckError("DrawDots")
 }

@@ -13,6 +13,9 @@ require (
 	github.com/gopherjs/gopherjs v0.0.0-20210803090616-8f023c250c89 // indirect
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/goxjs/gl v0.0.0-20210104184919-e3fafc6f8f2a // indirect
+	github.com/inkyblackness/imgui-go v1.12.0 // indirect
+	github.com/inkyblackness/imgui-go-examples v1.6.0 // indirect
+	github.com/inkyblackness/imgui-go/v4 v4.2.0 // indirect
 	github.com/ory/dockertest v3.3.4+incompatible // indirect
 	github.com/shibukawa/glfw v0.0.0-20151220152738-6574577f7b9c // indirect
 	github.com/shibukawa/glfw-2 v0.0.0-20151216165810-0dcf1bf50b3f // indirect

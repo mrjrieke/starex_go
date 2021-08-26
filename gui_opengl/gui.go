@@ -5,21 +5,28 @@ import (
 	"log"
 	"math"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
+
+	//	"strconv"
+	//	"strings"
 	"time"
 
 	"image"
 	"image/png"
 
 	"github.com/go-gl/gl/v4.4-core/gl"
-	"github.com/go-gl/glfw/v3.0/glfw"
-	"github.com/engoengine/glm"
+	//"github.com/go-gl/gl/v3.2-core/gl"
 
-//	"github.com/shibukawa/nanogui-go"
+	"github.com/go-gl/glfw/v3.2/glfw"
+
+	"github.com/engoengine/glm"
+	"github.com/inkyblackness/imgui-go/v4"
 
 	"github.com/Jest0r/starex_go/galaxy"
-
+	"github.com/Jest0r/starex_go/platforms"
+	"github.com/Jest0r/starex_go/renderers"
 )
 
 const (
@@ -44,7 +51,8 @@ const (
 	// turn off if 0
 	FrameRateLimit = 0
 
-	Bloom = true
+	Bloom        = true
+	ImGUIEnabled = true
 )
 
 type Window struct {
@@ -53,21 +61,31 @@ type Window struct {
 	Width      int
 	Height     int
 	Fullscreen bool
+	Monitor    *glfw.Monitor
+	Vidmode    *glfw.VidMode
+
+	ImGUIEnabled bool
 }
 
 func (w *Window) Init() {
+	//var err error
+	w.ImGUIEnabled = ImGUIEnabled
 	// initialize the library
-	if err := glfw.Init(); !err {
-		panic(err)
+	if !w.ImGUIEnabled {
+		//if true {
+		err := glfw.Init()
+		if err != nil {
+			panic(err)
+		}
+		// create a window mode and it's OpenGL Context
+		w.InitScreen(w.Width, w.Height, w.Title, w.Fullscreen)
+		// Init OpenGL
+		err = gl.Init()
+		if err != nil {
+			panic("Init error! - " + err.Error())
+		}
 	}
-//	nanogui.Init()
-	// create a window mode and it's OpenGL Context
-	w.Window = InitScreen(w.Width, w.Height, w.Title, w.Fullscreen)
 
-	// Init OpenGL
-	if err := gl.Init(); err != nil {
-		panic("Init error! - " + err.Error())
-	}
 	//	gl.GetString(name uint32)
 	version := gl.GoStr(gl.GetString(gl.VERSION))
 	log.Println("OpenGL version", version)
@@ -80,12 +98,44 @@ func (w *Window) Init() {
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE)
 }
 
+func (w *Window) InitScreen(width int, height int, title string, fullscreen bool) {
+
+	//	var monitor *glfw.Monitor
+	var err error
+	//	var vidmode *glfw.VidMode
+	//	_ = vidmode
+	if fullscreen {
+		w.Monitor = glfw.GetPrimaryMonitor()
+		w.Vidmode = w.Monitor.GetVideoMode()
+		width = w.Vidmode.Width
+		height = w.Vidmode.Height
+		fmt.Println("Entering fullscreen @ ", width, " x ", height)
+	} else {
+		w.Monitor = nil
+	}
+	w.Window, err = glfw.CreateWindow(width, height, title, w.Monitor, nil)
+	if err != nil {
+		fmt.Println("glfw Window cannot be created.")
+		glfw.Terminate()
+		panic(err)
+	}
+
+	// make the window's context current
+	w.Window.MakeContextCurrent()
+}
+
 type Gui struct {
 	Win   Window
 	Cam   Camera
 	Scene Scene
 	Persp Perspective
-	//NanoGUI nanogui.Screen
+
+	// --- ImGUI stuff
+	ImGUIContext  imgui.Context
+	ImGUIIO       imgui.IO
+	ImGUIPlatform *platforms.GLFW
+	ImGUIRenderer *renderers.OpenGL3
+
 	// --- Shaders
 	Shader           ShaderData // Shader for simple display
 	BloomStep1Shader ShaderData // Step 1 for enabled lighting effect
@@ -109,6 +159,7 @@ type Gui struct {
 	pingpongFBOs         []uint32
 	pingpongColorBuffers []uint32
 	fbo                  uint32
+	vbo                  uint32
 	hdrFBO               uint32
 	//TexPtrs        [2]uint32
 	BloomActive bool
@@ -118,7 +169,7 @@ func (g *Gui) setCallbacks() {
 	g.Win.Window.SetSizeCallback(g.windowSizeCallback)
 	g.Win.Window.SetKeyCallback(g.keyCallback)
 	g.Win.Window.SetMouseButtonCallback(g.mouseCallback)
-	g.Win.Window.SetPositionCallback(g.posCallback)
+	g.Win.Window.SetPosCallback(g.posCallback)
 	g.Win.Window.SetScrollCallback(g.scrollCallback)
 }
 
@@ -326,7 +377,10 @@ func (g *Gui) toggleFullscreen() {
 	FeedColorBuffer(g.Scene.Colors)
 	FeedLumBuffer(g.Scene.Lums)
 	g.Shader.GetUniformLoc("uMVP")
-	g.setCallbacks()
+
+	if !g.Win.ImGUIEnabled {
+		g.setCallbacks()
+	}
 }
 
 func (g *Gui) togglePause() {
@@ -335,6 +389,7 @@ func (g *Gui) togglePause() {
 		g.Pause()
 	}
 }
+
 /*
 func (g *Gui) LoadGalaxyFromFile(filename string) {
 	// loading galaxy
@@ -356,17 +411,56 @@ func (g *Gui) Init() {
 	g.Win.Title = "Starex Starfield Visualizer (openGL)"
 	g.Win.Height = int(ScreenHeight)
 	g.Win.Width = int(ScreenWidth)
-	g.Win.Init()
-	// Set Callbacks for Key input and Size change
-	g.setCallbacks()
+
 	g.BloomActive = Bloom
 
-//	g.NanoGUI.Initialize(@g.Win.Window, true)
-//	nanogui.Init()
-//	nanogui.
+	// neccessary, otherwise everything breaks.
+	runtime.LockOSThread()
 
+	if !ImGUIEnabled {
+		g.Win.Init()
+
+		// Set Callbacks for Key input and Size change
+		g.setCallbacks()
+	} else {
+		// IMGUI stuff
+		g.ImGUIContext = *imgui.CreateContext(nil)
+		//defer g.ImGUIContext.Destroy()
+		g.ImGUIIO = imgui.CurrentIO()
+
+		var err error
+		g.ImGUIPlatform, err = platforms.NewGLFW(g.ImGUIIO, platforms.GLFWClientAPIOpenGL4)
+		//		g.ImGUIPlatform, err = platforms.NewGLFW(g.ImGUIIO, platforms.GLFWClientAPIOpenGL3)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(-1)
+		}
+		//g.Win.Init()
+		g.Win.Window = g.ImGUIPlatform.GetWindow()
+		// defer platform.Dispose()
+
+		g.ImGUIRenderer, err = renderers.NewOpenGL3(g.ImGUIIO)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(-1)
+		}
+		for error := gl.GetError(); error != gl.NO_ERROR; {
+			hexerror := strconv.FormatInt(int64(error), 16)
+			fmt.Printf("ERROR: OpenGL Init Error (0x%s)\n", hexerror)
+		}
+		g.Win.Init()
+	}
+	//	defer renderer.Dispose()
+	// Enable Texture
+	gl.Enable(gl.TEXTURE_2D)
+
+	// Enable Blending
+	gl.Enable(gl.BLEND)
+	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE)
 	// get glgs version
 	glgsver := strings.Split(gl.GoStr(gl.GetString(gl.SHADING_LANGUAGE_VERSION)), ".")
+	fmt.Println("glsl version:", glgsver)
+	fmt.Println("srting:", gl.GoStr(gl.GetString(gl.SHADING_LANGUAGE_VERSION)))
 
 	// Loading Shaders
 	if gv, _ := strconv.Atoi(glgsver[0]); gv < 3 {
@@ -376,6 +470,7 @@ func (g *Gui) Init() {
 		//g.Shader.UseShader("shaders/bloom.glsl")
 		g.Shader.Init("shaders/experimental.glsl")
 	}
+
 	// get Uniform loc
 	g.Shader.GetUniformLoc("uMVP")
 
@@ -404,16 +499,20 @@ func (g *Gui) Init() {
 	g.blurSteps = 6
 }
 
-
-func (g *Gui) PrepareScene(){
+func (g *Gui) PrepareScene() {
 	start := time.Now()
 	g.Scene.LoadData(g.Galaxy, float32(g.Galaxy.Radius))
+
 	// ------------------------------------------------
 	// for bloom:
 	// https://github.com/JoeyDeVries/LearnOpenGL/blob/master/src/5.advanced_lighting/7.bloom/bloom.cpp
 	// lines 97-
 	// HDR Framebuffer
 	//	var hdrFBO uint32
+
+	GlClearError()
+	//	g.Shader.Use()
+	g.BloomStep1Shader.Use()
 	gl.GenFramebuffers(1, &g.hdrFBO)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, g.hdrFBO)
 
@@ -430,21 +529,32 @@ func (g *Gui) PrepareScene(){
 	gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
 
 	g.pingpongFBOs, g.pingpongColorBuffers = CreatePingPongFBOs(2, int32(g.Win.Width), int32(g.Win.Height))
+	GlCheckError("Somethin went wrong")
 
 	// ------------------------------------------------
 	// Here the buffer magic starts
 
 	//---- not sure if that correct or if that should be done via the ColorBuffers
-	GlClearError()
-	gl.GenBuffers(1, &g.colorBuf)
-	gl.BindBuffer(gl.ARRAY_BUFFER, g.colorBuf)
-	gl.BufferData(gl.ARRAY_BUFFER, 4*len(g.Scene.Colors), gl.Ptr(g.Scene.Colors), gl.STATIC_DRAW)
-	// describe what the positions array actually mean
-	gl.VertexAttribPointer(1, 4, gl.FLOAT, false, 0, nil)
-	gl.EnableVertexAttribArray(1)
-	GlCheckError("Feed Colors into VBO")
+	/*
+		GlClearError()
+		gl.GenBuffers(1, &g.colorBuf)
+		gl.BindBuffer(gl.ARRAY_BUFFER, g.colorBuf)
+		gl.BufferData(gl.ARRAY_BUFFER, 4*len(g.Scene.Colors), gl.Ptr(g.Scene.Colors), gl.STATIC_DRAW)
+		GlCheckError("VBO - Bind Color Data")
 
-	g.texBuf, g.fbo = FeedVBOBuffer3D(g.Scene.Points, int32(g.Win.Width), int32(g.Win.Height))
+		GlClearError()
+		// error is here
+		// ----
+		gl.EnableVertexAttribArray(1)
+		GlCheckError("Enable vertex Array")
+		GlClearError()
+		//	gl.VertexAttribPointer(1, 4, gl.FLOAT, false, 0, nil)
+		gl.VertexAttribPointer(1, 4, gl.FLOAT, false, 0, nil)
+	*/
+	GlCheckError("Vertex Attrib Pointer")
+	//gl.EnableVertexAttribArray(0)
+
+	g.texBuf, g.colorBuf, g.fbo, g.vbo = FeedVBOBuffer3D(g.Scene.Points, g.Scene.Colors, int32(g.Win.Width), int32(g.Win.Height))
 
 	// ------------------------------------------------
 
@@ -483,7 +593,15 @@ func (g *Gui) Mainloop() {
 		tick = time.Duration(1000000/frameRateLimit) * time.Microsecond
 	}
 	for !g.Win.Window.ShouldClose() {
+		if g.Win.ImGUIEnabled {
+			// imgui stuff
+			g.ImGUIPlatform.ProcessEvents()
+			g.ImGUIPlatform.NewFrame()
+			imgui.NewFrame()
 
+			imgui.Text("Hello world!")
+
+		}
 		curTime := time.Now()
 		// if one second passed, print frame draw time
 		if time.Since(lastTime) > time.Second {
@@ -593,6 +711,14 @@ func (g *Gui) Mainloop() {
 
 		}
 		// Swap front and back buffers
+		if ImGUIEnabled {
+			imgui.Render()
+			//			clearColor := [3]float32{0, 0, 0}
+			//			g.ImGUIRenderer.PreRender(clearColor)
+			g.ImGUIRenderer.Render(g.ImGUIPlatform.DisplaySize(), g.ImGUIPlatform.FramebufferSize(), imgui.RenderedDrawData())
+			//			g.ImGUIPlatform.PostRender()
+		}
+
 		g.Win.Window.SwapBuffers()
 		nbFrames += 1
 		// Poll for and process events
@@ -609,18 +735,3 @@ func (g *Gui) Mainloop() {
 	}
 
 }
-
-/*
-// ------------- MAIN -------------
-func main() {
-	// strictly neccessary, otherwise everything breaks. Not sure why exactly. I believe gl.init has to be in the same thread...
-	runtime.LockOSThread()
-	var game Game
-	//	Define Cleanup procedure
-	defer game.cleanup()
-
-	game.init()
-
-	game.mainloop()
-}
-*/

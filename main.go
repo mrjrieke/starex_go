@@ -9,8 +9,7 @@ import (
 )
 
 func main() {
-	// neccessary, otherwise everything breaks.
-	runtime.LockOSThread()
+    runtime.LockOSThread()
 
 	var game game.Game
 	//	var gui gui.Gui

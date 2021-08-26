@@ -11,7 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/Jest0r/starex_go/galaxy"
-	"github.com/Jest0r/starex_go/gui_opengl"
+	gui "github.com/Jest0r/starex_go/gui_opengl"
 )
 
 // Holding the configuration file data
@@ -43,7 +43,7 @@ func (c *Config) ReadConfig(filename string) {
 // Holding all needed Game data
 type Game struct {
 	Title  string
-	Gui    gui_opengl.Gui
+	Gui    gui.Gui
 	config Config
 	Galaxy galaxy.Galaxy
 }
@@ -55,15 +55,12 @@ func (g *Game) Init() {
 	g.config.ReadConfig("cfg/config.yaml")
 	fmt.Println(g.config)
 
-	// TODO: parameters should go into Create()
 	// TODO: Load should also be done here, and not directly in the GUI
-	//g.Galaxy.Init(200000, 20000, 2000)
 	g.Galaxy.Init()
 	g.Gui.Init()
 	g.Gui.Galaxy = &g.Galaxy
 
 	// either Create()...
-	//g.Galaxy.Create()
 	g.Galaxy.Create(200000, 20000, 2000)
 	// ... or LoadFromFile()
 	//g.Galaxy.LoadFromFile("saves/galaxy2")

@@ -200,6 +200,6 @@ func (st *StarTypes) ReadStarData(fname string) {
 	// get CPM for number of objects in system
 	st.GetProbs()
 	st.Cpm = getCPM(st.Probs)
-	fmt.Println("Star Probs:", st.Probs, st.Cpm)
+//	fmt.Println("Star Probs:", st.Probs, st.Cpm)
 
 }

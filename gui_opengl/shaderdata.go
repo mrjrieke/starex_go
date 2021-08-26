@@ -8,8 +8,9 @@ import (
 	"os"
 	"strings"
 
-//	"example.com/helmut/starex_vis_opengl/opengl"
+	//	"example.com/helmut/starex_vis_opengl/opengl"
 	"github.com/go-gl/gl/v4.4-core/gl"
+	//"github.com/go-gl/gl/v3.2-core/gl"
 )
 
 const (
@@ -24,7 +25,7 @@ type ShaderData struct {
 	Program      uint32
 	Uniforms     map[string]int32
 	ShaderSource [2]string
-	TexPtrs 	 [2]uint32
+	TexPtrs      [2]uint32
 }
 
 func (sd *ShaderData) GetUniformLoc(uname string) {
