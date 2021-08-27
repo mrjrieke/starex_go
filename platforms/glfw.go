@@ -30,7 +30,7 @@ type GLFW struct {
 }
 
 // NewGLFW attempts to initialize a GLFW context.
-func NewGLFW(io imgui.IO, clientAPI GLFWClientAPI) (*GLFW, error) {
+func NewGLFW(io imgui.IO, clientAPI GLFWClientAPI, width int, height int) (*GLFW, error) {
 	runtime.LockOSThread()
 
 	err := glfw.Init()
@@ -57,7 +57,8 @@ func NewGLFW(io imgui.IO, clientAPI GLFWClientAPI) (*GLFW, error) {
 		return nil, ErrUnsupportedClientAPI
 	}
 
-	window, err := glfw.CreateWindow(windowWidth, windowHeight, "ImGui-Go GLFW+"+string(clientAPI)+" example", nil, nil)
+	//window, err := glfw.CreateWindow(windowWidth, windowHeight, "ImGui-Go GLFW+"+string(clientAPI)+" example", nil, nil)
+	window, err := glfw.CreateWindow(width, height, "ImGui-Go GLFW+"+string(clientAPI)+" example", nil, nil)
 	if err != nil {
 		glfw.Terminate()
 		return nil, fmt.Errorf("failed to create window: %w", err)
@@ -130,12 +131,12 @@ func (platform *GLFW) NewFrame() {
 		platform.mouseJustPressed[i] = false
 	}
 }
-
+/*
 // PostRender performs a buffer swap.
 func (platform *GLFW) PostRender() {
 	platform.window.SwapBuffers()
 }
-
+*/
 func (platform *GLFW) setKeyMapping() {
 	// Keyboard mapping. ImGui will use those indices to peek into the io.KeysDown[] array.
 	platform.imguiIO.KeyMap(imgui.KeyTab, int(glfw.KeyTab))
@@ -210,7 +211,7 @@ func (platform *GLFW) keyChange(window *glfw.Window, key glfw.Key, scancode int,
 func (platform *GLFW) charChange(window *glfw.Window, char rune) {
 	platform.imguiIO.AddInputCharacters(string(char))
 }
-
+/*
 // ClipboardText returns the current clipboard text, if available.
 func (platform *GLFW) ClipboardText() (string, error) {
 	return platform.window.GetClipboardString()
@@ -220,7 +221,7 @@ func (platform *GLFW) ClipboardText() (string, error) {
 func (platform *GLFW) SetClipboardText(text string) {
 	platform.window.SetClipboardString(text)
 }
-
+*/
 // SetClipboardText sets the text as the current clipboard text.
 func (platform *GLFW) GetWindow() *glfw.Window {
 	return platform.window

@@ -53,7 +53,6 @@ func (g *Game) Init() {
 	fmt.Println("Init")
 	g.Title = "Starex"
 	g.config.ReadConfig("cfg/config.yaml")
-	fmt.Println(g.config)
 
 	// TODO: Load should also be done here, and not directly in the GUI
 	g.Galaxy.Init()
@@ -65,16 +64,16 @@ func (g *Game) Init() {
 	// ... or LoadFromFile()
 	//g.Galaxy.LoadFromFile("saves/galaxy2")
 
-	fmt.Println(g.Galaxy.SysCount)
-
 	g.Gui.PrepareScene()
 
 }
 
 // Game mainloop. Loop is handled within the function
 func (g *Game) Mainloop() {
-	fmt.Println("Skipping Mainloop")
-	g.Gui.Mainloop()
+	for !g.Gui.GameExitRequested {
+		// -- finally a run of the GUI mainloop
+		g.Gui.Mainloop()
+	}
 }
 
 // Game destructor

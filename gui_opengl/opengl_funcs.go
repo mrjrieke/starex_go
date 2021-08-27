@@ -9,12 +9,9 @@ import (
 	"fmt"
 	"strconv"
 
-	//	"runtime"
-
 	// > 4.4 panics on windows
 	"github.com/engoengine/glm"
 	"github.com/go-gl/gl/v4.4-core/gl"
-	//"github.com/go-gl/gl/v3.2-core/gl"
 )
 
 // ----- ERROR CHECKING ------
@@ -52,8 +49,6 @@ func createTextures(amount int32, fbo uint32) [2]uint32 {
 		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, 1200, 800, 0, gl.RGB, gl.UNSIGNED_BYTE, nil)
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-		//		gl.FramebufferTexture(gl.FRAMEBUFFER, uint32(gl.COLOR_ATTACHMENT0)+uint32(i), tex[i], 0)
-		//gl.FramebufferTexture2D(gl.FRAMEBUFFER, uint32(gl.COLOR_ATTACHMENT0)+uint32(i), gl.TEXTURE_2D, tex[i], 0)
 		gl.FramebufferTexture2D(fbo, uint32(gl.COLOR_ATTACHMENT0)+uint32(i), gl.TEXTURE_2D, tex[i], 0)
 		GlCheckError("Generate Textures")
 	}
@@ -62,7 +57,7 @@ func createTextures(amount int32, fbo uint32) [2]uint32 {
 
 var vao uint32
 
-func FeedVBOBuffer3D(positions []float32, colors []float32, width int32, height int32) (uint32, uint32, uint32, uint32) {
+func FeedSceneToBuffers(positions []float32, colors []float32, width int32, height int32) (uint32, uint32, uint32, uint32) {
 	var tex uint32
 	var vbo uint32
 	var col uint32
@@ -262,8 +257,6 @@ func FeedLumBuffer(lums []float64) uint32 {
 	var vbo uint32
 	GlClearError()
 	gl.GenBuffers(1, &vbo)
-	//	fmt.Println("---")
-	//	fmt.Println(lums)
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
 	gl.BufferData(gl.ARRAY_BUFFER, len(lums), gl.Ptr(lums), gl.STATIC_DRAW)
 	// describe what the positions array actually mean
