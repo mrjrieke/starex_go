@@ -2,6 +2,9 @@ package gui_opengl
 
 import (
 	"fmt"
+	//	"io"
+	"bytes"
+	"io/ioutil"
 	"log"
 	"math"
 	"os"
@@ -49,6 +52,8 @@ const (
 	FrameRateLimit = 100
 
 	Bloom = true
+
+	MaxLogScrollback = 50
 )
 
 type Gui struct {
@@ -76,6 +81,8 @@ type Gui struct {
 	uActiveWeight    int32
 	blurSteps        int
 
+	showDisplayTitle bool
+
 	// -----------
 	Galaxy               *galaxy.Galaxy
 	pause                bool
@@ -91,6 +98,13 @@ type Gui struct {
 	hdrFBO               uint32
 	BloomActive          bool
 
+	// logging
+	rawLog      *bytes.Buffer
+	stringLog   []string
+	InfoLogger  *log.Logger
+	WarnLogger  *log.Logger
+	ErrorLogger *log.Logger
+
 	// ---- mainloop stuff
 	rotPerFrameA float32
 	lastTime     time.Time
@@ -100,6 +114,9 @@ type Gui struct {
 	frameRateLimit int
 	msPerFrame     float32
 	Fps            int
+
+	// ---- game flags
+	displayGalaxy bool
 
 	GameExitRequested bool
 }
@@ -112,13 +129,15 @@ func (g *Gui) setCallbacks() {
 	g.Win.Window.SetScrollCallback(g.scrollCallback)
 }
 
-func (g *Gui) cleanup() {
-	fmt.Println("Cleaning up...")
-	defer glfw.Terminate()
+func (g *Gui) Cleanup() {
+	g.InfoLogger.Println("Cleaning up...")
+	defer g.ImGUIContext.Destroy()
+	defer g.ImGUIRenderer.Dispose()
+	defer g.Win.Cleanup()
 }
 
 func (g *Gui) Pause() {
-	fmt.Println("----- PAUSE -----")
+	g.WarnLogger.Println("----- PAUSE -----")
 	for g.pause {
 		time.Sleep(100 * time.Millisecond)
 		glfw.PollEvents()
@@ -130,7 +149,7 @@ func (g *Gui) Pause() {
 func (g *Gui) windowSizeCallback(window *glfw.Window, width int, height int) {
 	g.Win.Width = width
 	g.Win.Height = height
-	fmt.Println("Adjusting window")
+	g.InfoLogger.Println("Adjusting window")
 
 	gl.Viewport(0, 0, int32(width), int32(height))
 	g.Persp.AspectRatio = float32(g.Win.Width / g.Win.Height)
@@ -168,6 +187,10 @@ func (g *Gui) scrollCallback(window *glfw.Window, xpos float64, ypos float64) {
 
 func (g *Gui) keyCallback(window *glfw.Window, key glfw.Key, scancode int, keyAction glfw.Action, mods glfw.ModifierKey) {
 	if keyAction == glfw.Press {
+		// if in title screen, exit.
+		if g.showDisplayTitle {
+			g.showDisplayTitle = false
+		}
 		switch key {
 		case glfw.KeyF11:
 			g.toggleFullscreen()
@@ -191,7 +214,6 @@ func (g *Gui) keyCallback(window *glfw.Window, key glfw.Key, scancode int, keyAc
 			if g.uBrightThreshold > 0.1 {
 				g.uBrightThreshold -= 0.1
 			}
-			fmt.Println(g.uBrightThreshold)
 		// --- exposure
 		case glfw.KeyT:
 			g.uExposure += 0.1
@@ -206,10 +228,10 @@ func (g *Gui) keyCallback(window *glfw.Window, key glfw.Key, scancode int, keyAc
 			g.uBloomBlur = 1 - g.uBloomBlur
 		case glfw.KeyC:
 			g.uActiveWeight = (g.uActiveWeight + 1) % int32(len(g.uWeights))
-			fmt.Println("Active Weight", g.uActiveWeight)
+			g.InfoLogger.Println("Active Weight", g.uActiveWeight)
 		case glfw.KeyX:
 			g.blurSteps = (g.blurSteps + 2) % 10
-			fmt.Println("Blur Steps:", g.blurSteps)
+			g.InfoLogger.Println("Blur Steps:", g.blurSteps)
 		// --- zooming and rotating
 		case glfw.KeyUp:
 			g.Cam.Dist -= ZoomIncrement
@@ -290,7 +312,7 @@ func (g *Gui) threaded_save(filename string, im *image.NRGBA, width int, height 
 	if err := f.Close(); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Image save complete.")
+	g.InfoLogger.Println("Image save complete.")
 }
 
 // ----------- Toggles --------------
@@ -327,6 +349,86 @@ func (g *Gui) togglePause() {
 	}
 }
 
+func (g *Gui) displayLog() {
+	var textCol imgui.Vec4
+	imgui.SetNextWindowPos(imgui.Vec2{X: 10, Y: float32(g.Win.Height) - 150})
+	imgui.SetNextWindowSize(imgui.Vec2{X: float32(g.Win.Width) / 2, Y: 150})
+	imgui.Begin("Log")
+
+	// adding raw logs to string log, and truncate raw log
+	if g.rawLog.Len() > 0 {
+		g.stringLog = append(g.stringLog, strings.Split(g.rawLog.String(), "\n")...)
+		g.rawLog.Truncate(0)
+
+	}
+
+	// cap string log to max scrollback
+	if len(g.stringLog) > MaxLogScrollback {
+		g.stringLog = g.stringLog[len(g.stringLog)-MaxLogScrollback:]
+	}
+
+	// display lines
+	for _, line := range g.stringLog {
+		if len(line) > 0 {
+			switch line[0] {
+			case 'W':
+				textCol = imgui.Vec4{X: 0.8, Y: 0.8, Z: 0, W: 1}
+			case 'E':
+				textCol = imgui.Vec4{X: 1, Y: 0.2, Z: 0, W: 1}
+			case 'I':
+				textCol = imgui.Vec4{X: 0.8, Y: 0.8, Z: 0.8, W: 1}
+			default:
+				textCol = imgui.Vec4{X: 1, Y: 1, Z: 1, W: 1}
+
+			}
+			imgui.PushStyleColor(imgui.StyleColorText, textCol)
+			imgui.Text(line)
+			imgui.PopStyleColor()
+
+		}
+	}
+	imgui.SetScrollHereY(1)
+	imgui.End()
+}
+
+// ---------- Game States -------------
+func (g *Gui) DisplayTitle() {
+	g.showDisplayTitle = true
+}
+
+func (g *Gui) displayTitle() {
+	ttext, err := ioutil.ReadFile("resource/logo.txt")
+	if err != nil {
+		g.ErrorLogger.Println("Can't open Logo File")
+	}
+
+	imgui.SetNextWindowPos(imgui.Vec2{X: float32(g.Win.Width)/2 - 200, Y: float32(g.Win.Height)/2 - 100})
+	imgui.SetNextWindowSize(imgui.Vec2{X: 400, Y: 200})
+	imgui.BeginV("Stats", nil, imgui.WindowFlagsNoResize|imgui.WindowFlagsNoMove|imgui.WindowFlagsNoTitleBar)
+	imgui.Text("                   Welcome to\n\n")
+	imgui.Text(string(ttext))
+	imgui.End()
+
+	// should close by any keystroke
+}
+
+func (g *Gui) DisplayMainMenu() {
+	g.InfoLogger.Println("Displaying Main Menu")
+
+}
+func (g *Gui) CreateGalaxy() {
+	g.InfoLogger.Println("Creating Galaxy")
+
+}
+func (g *Gui) LoadGalaxy() {
+	g.InfoLogger.Println("LoadingGalaxy")
+
+}
+func (g *Gui) DisplayGalaxy() {
+	g.displayGalaxy = true
+
+}
+
 func (g *Gui) Init() {
 	// Init some vars
 	// 		window stuff
@@ -341,13 +443,25 @@ func (g *Gui) Init() {
 
 	// IMGUI stuff
 	g.ImGUIContext = *imgui.CreateContext(nil)
-	//defer g.ImGUIContext.Destroy()
 	g.ImGUIIO = imgui.CurrentIO()
 
 	g.Win.Init()
-	// defer platform.Dispose()
+	// Init OpenGL
+	err := gl.Init()
+	if err != nil {
+		panic("Init error! - " + err.Error())
+	}
+
+	// logging to buffer, so it can be used for display
+	g.stringLog = []string{}
+	g.rawLog = new(bytes.Buffer)
+	log.SetOutput(g.rawLog)
+	g.InfoLogger = log.New(g.rawLog, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
+	g.WarnLogger = log.New(g.rawLog, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
+	g.ErrorLogger = log.New(g.rawLog, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 
 	GlClearError()
+
 	g.ImGUIRenderer, err = renderers.NewOpenGL3(g.ImGUIIO)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -357,7 +471,6 @@ func (g *Gui) Init() {
 
 	g.Win.PrepImGUI(&g.ImGUIIO)
 	g.setCallbacks()
-	//	defer renderer.Dispose()
 
 	// Enable Texture
 	gl.Enable(gl.TEXTURE_2D)
@@ -366,14 +479,15 @@ func (g *Gui) Init() {
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE)
 
-	// get glgs version
-	glgsver := strings.Split(gl.GoStr(gl.GetString(gl.SHADING_LANGUAGE_VERSION)), ".")
-	fmt.Println("glsl version:", glgsver)
-	fmt.Println("srting:", gl.GoStr(gl.GetString(gl.SHADING_LANGUAGE_VERSION)))
+	// get opengl and glsl version
+	openglVer := gl.GoStr(gl.GetString(gl.VERSION))
+	g.InfoLogger.Println("OpenGL version", openglVer)
+	glgsVer := strings.Split(gl.GoStr(gl.GetString(gl.SHADING_LANGUAGE_VERSION)), ".")
+	g.InfoLogger.Println("GLSL version:", gl.GoStr(gl.GetString(gl.SHADING_LANGUAGE_VERSION)))
 
 	// Loading Shaders
-	if gv, _ := strconv.Atoi(glgsver[0]); gv < 3 {
-		fmt.Println("Old glgs version - using legacy shader")
+	if gv, _ := strconv.Atoi(glgsVer[0]); gv < 3 {
+		g.WarnLogger.Println("Old glgs version - using legacy shader")
 		g.Shader.Init("shaders/legacy.glsl")
 	} else {
 		g.Shader.Init("shaders/experimental.glsl")
@@ -391,7 +505,8 @@ func (g *Gui) Init() {
 	// init different blurring weights.
 	g.uWeights = append(g.uWeights, []float32{0.1216216, 0.054054, 0.016216})
 	g.uWeights = append(g.uWeights, []float32{0.1216216, 0.054054, 0.016216, 0.008})
-	g.uWeights = append(g.uWeights, []float32{0.1216216, 0.054054, 0.016216, 0.012, 0.008, 0.005})
+	//g.uWeights = append(g.uWeights, []float32{0.1216216, 0.054054, 0.016216, 0.012, 0.008, 0.005})
+	g.uWeights = append(g.uWeights, []float32{0.1216216, 0.054054, 0.016216, 0.012, 0.008, 0.005, 0, 0})
 	g.uActiveWeight = 0
 
 	g.BloomShader.Init("shaders/bloom.glsl")
@@ -416,10 +531,18 @@ func (g *Gui) Init() {
 	if g.frameRateLimit > 0 {
 		g.tick = time.Duration(1000000/g.frameRateLimit) * time.Microsecond
 	}
+
+	g.displayGalaxy = true
 }
 
 func (g *Gui) PrepareScene() {
 	start := time.Now()
+
+	for _, st:=  range g.Galaxy.StarTypes.Types {
+		fmt.Println (st.Type, st.Luminosity)
+
+	}
+	// load data into displayable scene
 	g.Scene.LoadData(g.Galaxy, float32(g.Galaxy.Radius))
 
 	// ------------------------------------------------
@@ -451,13 +574,12 @@ func (g *Gui) PrepareScene() {
 	// this should be in here or in a separate *Gui function in the future
 	g.texBuf, g.colorBuf, g.fbo, g.vbo = FeedSceneToBuffers(g.Scene.Points, g.Scene.Colors, int32(g.Win.Width), int32(g.Win.Height))
 
-	fmt.Printf("...done. (%d systems, %d ms)\n", g.Galaxy.SysCount, time.Since(start)/1000000)
+	log.Printf("...done. (%d systems, %d ms)\n", g.Galaxy.SysCount, time.Since(start)/1000000)
 
 	//		camera stuff
 	// this is clunky. Maybe Cam and Persp should be combineed in an 'MVP' object or so,
 	// and Cam and Persp init should be done in one.
 	camDist := float32(InitialZoom / math.Tan(float64(glm.DegToRad(CamViewAngle))))
-	fmt.Println(camDist)
 	// temp  - has to be changed to camDist
 	g.Cam.SetPositionRadial(camDist, glm.DegToRad(CamAngleA), glm.DegToRad(CamAngleB))
 	g.Cam.Target = glm.Vec3{0.0, 0.0, 0.0}
@@ -475,14 +597,20 @@ func (g *Gui) PrepareScene() {
 func (g *Gui) Mainloop() {
 	// imgui stuff
 	g.Win.NewFrame()
+	imgui.NewFrame()
 
 	// create stats window and add text to it
-	imgui.NewFrame()
+	if g.showDisplayTitle {
+		g.displayTitle()
+	}
+
 	imgui.SetNextWindowPos(imgui.Vec2{X: 0, Y: 0})
 	imgui.SetNextWindowSize(imgui.Vec2{X: float32(g.Win.Width), Y: 100})
 	imgui.BeginV("Stats", nil, imgui.WindowFlagsNoResize)
 	imgui.Text(fmt.Sprintf("FPS: %d (%.3f ms/frame)", g.Fps, g.msPerFrame))
+	imgui.PushStyleColor(imgui.StyleColorText, imgui.Vec4{0.3, 0.1, 0.9, 1.0})
 	imgui.Text(fmt.Sprintf("%d Stars", g.Galaxy.SysCount))
+	imgui.PopStyleColor()
 	imgui.Text(fmt.Sprintf("Bloom active: %v\n", g.BloomActive))
 	imgui.End()
 	// --------------
@@ -501,106 +629,114 @@ func (g *Gui) Mainloop() {
 		g.nbFrames = 0
 		g.lastTime = curTime
 	}
+	// Clear Screen
+	GlClearError()
+	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
+	gl.Clear(gl.COLOR_BUFFER_BIT)
+	GlCheckError("Clearing screen")
+	if g.displayGalaxy {
 
-	if !g.BloomActive {
-		gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
+		if !g.BloomActive {
+			gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
 
-		gl.ClearColor(0.0, 0.0, 0.0, 1.0)
-		gl.Clear(gl.COLOR_BUFFER_BIT)
-		GlCheckError("Clearing screen")
+			gl.ClearColor(0.0, 0.0, 0.0, 1.0)
+			gl.Clear(gl.COLOR_BUFFER_BIT)
+			GlCheckError("Clearing screen")
 
-		g.Shader.Use()
-		// transformation matrix
-		mvpMatrix := GetMVPMatrix(g.Cam, g.Persp)
-		// Apply MVP (Model,View,Pre)
-		UniformMatrix(g.Shader.Uniforms["uMVP"], mvpMatrix)
+			g.Shader.Use()
+			// transformation matrix
+			mvpMatrix := GetMVPMatrix(g.Cam, g.Persp)
+			// Apply MVP (Model,View,Pre)
+			UniformMatrix(g.Shader.Uniforms["uMVP"], mvpMatrix)
 
-		// Clear Screen
-		GlClearError()
+			// Clear Screen
+			GlClearError()
 
-		// draw the stars
-		DrawDots(g.Galaxy.SysCount)
+			// draw the stars
+			DrawDots(g.Galaxy.SysCount)
 
-	} else {
-		g.BloomStep1Shader.SetFloat("uBrightThreshold", g.uBrightThreshold)
-		g.BloomShader.SetFloat("exposure", g.uExposure)
-		g.BloomShader.SetInt("bloomBlur", g.uBloomBlur)
-		// ------------- BLOOM SHADER STUFF ------------
-		// render to given framebuffer
-		gl.BindFramebuffer(gl.FRAMEBUFFER, g.hdrFBO)
-		attachments := [2]uint32{gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1}
-		gl.DrawBuffers(2, &attachments[0])
+		} else {
 
-		// Clear Screen
-		GlClearError()
-		gl.ClearColor(0.0, 0.0, 0.0, 1.0)
-		gl.Clear(gl.COLOR_BUFFER_BIT)
-		GlCheckError("Clearing screen")
+			g.BloomStep1Shader.SetFloat("uBrightThreshold", g.uBrightThreshold)
+			g.BloomShader.SetFloat("exposure", g.uExposure)
+			g.BloomShader.SetInt("bloomBlur", g.uBloomBlur)
+			// ------------- BLOOM SHADER STUFF ------------
+			// render to given framebuffer
+			gl.BindFramebuffer(gl.FRAMEBUFFER, g.hdrFBO)
+			attachments := [2]uint32{gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1}
+			gl.DrawBuffers(2, &attachments[0])
 
-		g.BloomStep1Shader.Use()
-		// transformation matrix
-		mvpMatrix := GetMVPMatrix(g.Cam, g.Persp)
-		// Apply MVP (Model,View,Pre)
-		UniformMatrix(g.BloomStep1Shader.Uniforms["uMVP"], mvpMatrix)
-		DrawDots(g.Galaxy.SysCount)
+			// clear the screen
+			gl.ClearColor(0.0, 0.0, 0.0, 1.0)
+			gl.Clear(gl.COLOR_BUFFER_BIT)
+			g.BloomStep1Shader.Use()
+			// transformation matrix
+			mvpMatrix := GetMVPMatrix(g.Cam, g.Persp)
+			// Apply MVP (Model,View,Pre)
+			UniformMatrix(g.BloomStep1Shader.Uniforms["uMVP"], mvpMatrix)
+			DrawDots(g.Galaxy.SysCount)
 
-		// clear the screen
-		gl.ClearColor(0.0, 0.0, 0.0, 1.0)
-		gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
-		gl.Clear(gl.COLOR_BUFFER_BIT)
+			// clear the screen
+			gl.ClearColor(0.0, 0.0, 0.0, 1.0)
+			gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
+			gl.Clear(gl.COLOR_BUFFER_BIT)
 
-		// new shader
-		g.BlurShader.Use()
+			// new shader
+			g.BlurShader.Use()
 
-		// set the current blur weights
-		g.BlurShader.SetInt("uWeightLen", int32(len(g.uWeights[g.uActiveWeight])))
-		g.BlurShader.SetFloatV("uWeight", g.uWeights[g.uActiveWeight])
+			// set the current blur weights
+			g.BlurShader.SetInt("uWeightLen", int32(len(g.uWeights[g.uActiveWeight])))
+			g.BlurShader.SetFloatV("uWeight", g.uWeights[g.uActiveWeight])
 
-		// ----------------- Flip flop blur
-		var horizontal int32
-		var buf uint32
-		_ = buf
-		horizontal = 1
-		first_iteration := true
+			// ----------------- Flip flop blur
+			var horizontal int32
+			var buf uint32
+			_ = buf
+			horizontal = 1
+			first_iteration := true
 
-		// cleaning the pingpongFBOs
-		gl.BindFramebuffer(gl.FRAMEBUFFER, g.pingpongFBOs[0])
-		gl.Clear(gl.COLOR_BUFFER_BIT)
-		gl.BindFramebuffer(gl.FRAMEBUFFER, g.pingpongFBOs[1])
-		gl.Clear(gl.COLOR_BUFFER_BIT)
+			// cleaning the pingpongFBOs
+			gl.BindFramebuffer(gl.FRAMEBUFFER, g.pingpongFBOs[0])
+			gl.Clear(gl.COLOR_BUFFER_BIT)
+			gl.BindFramebuffer(gl.FRAMEBUFFER, g.pingpongFBOs[1])
+			gl.Clear(gl.COLOR_BUFFER_BIT)
 
-		// do the ping pong rendering - 5xhorizontal + 5xvertical
-		for i := 0; i < g.blurSteps; i++ {
-			gl.BindFramebuffer(gl.FRAMEBUFFER, g.pingpongFBOs[horizontal])
-			g.BlurShader.SetInt("uHorizontal", horizontal)
-			// bind texture to other framebuffer, or to scene if first run
-			if first_iteration {
-				buf = g.colorBuffers[1]
-				first_iteration = false
-			} else {
-				buf = g.pingpongColorBuffers[1-horizontal]
+			// do the ping pong rendering - 5xhorizontal + 5xvertical
+			for i := 0; i < g.blurSteps; i++ {
+				gl.BindFramebuffer(gl.FRAMEBUFFER, g.pingpongFBOs[horizontal])
+				g.BlurShader.SetInt("uHorizontal", horizontal)
+				// bind texture to other framebuffer, or to scene if first run
+				if first_iteration {
+					buf = g.colorBuffers[1]
+					first_iteration = false
+				} else {
+					buf = g.pingpongColorBuffers[1-horizontal]
+				}
+				gl.BindTexture(gl.TEXTURE_2D, buf)
+				RenderQuad()
+				horizontal = 1 - horizontal
 			}
-			gl.BindTexture(gl.TEXTURE_2D, buf)
+
+			// switch to screen and clear
+			gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
+			gl.ClearColor(0.0, 0.0, 0.0, 1.0)
+			gl.Clear(gl.COLOR_BUFFER_BIT)
+
+			g.BloomShader.Use()
+			// first the 'normal' galaxy
+			gl.ActiveTexture(gl.TEXTURE1)
+			gl.BindTexture(gl.TEXTURE_2D, g.colorBuffers[0])
+			// then the bloom on top
+			gl.ActiveTexture(gl.TEXTURE0)
+			gl.BindTexture(gl.TEXTURE_2D, g.pingpongColorBuffers[1-horizontal])
+
 			RenderQuad()
-			horizontal = 1 - horizontal
+
 		}
-
-		// switch to screen and clear
-		gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
-		gl.ClearColor(0.0, 0.0, 0.0, 1.0)
-		gl.Clear(gl.COLOR_BUFFER_BIT)
-
-		g.BloomShader.Use()
-		// first the 'normal' galaxy
-		gl.ActiveTexture(gl.TEXTURE1)
-		gl.BindTexture(gl.TEXTURE_2D, g.colorBuffers[0])
-		// then the bloom on top
-		gl.ActiveTexture(gl.TEXTURE0)
-		gl.BindTexture(gl.TEXTURE_2D, g.pingpongColorBuffers[1-horizontal])
-
-		RenderQuad()
-
 	}
+	// Display logging window
+	g.displayLog()
+
 	// Swap front and back buffers
 	imgui.Render()
 	g.ImGUIRenderer.Render(g.Win.DisplaySize(), g.Win.FramebufferSize(), imgui.RenderedDrawData())

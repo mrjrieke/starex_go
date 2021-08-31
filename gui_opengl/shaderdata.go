@@ -4,13 +4,10 @@ import (
 	"bufio"
 	"fmt"
 
-	//	"math"
 	"os"
 	"strings"
 
-	//	"example.com/helmut/starex_vis_opengl/opengl"
 	"github.com/go-gl/gl/v4.4-core/gl"
-	//"github.com/go-gl/gl/v3.2-core/gl"
 )
 
 const (
@@ -34,7 +31,6 @@ func (sd *ShaderData) GetUniformLoc(uname string) {
 		sd.Uniforms = make(map[string]int32)
 	}
 	sd.Uniforms[uname] = unif
-	fmt.Println("Uniforms:", sd.Uniforms)
 }
 
 func (sd *ShaderData) CreateUniformLoc(uname string) int32 {
@@ -56,8 +52,7 @@ func (sd *ShaderData) CreateUniformLoc(uname string) int32 {
 
 func (sd *ShaderData) SetFloatV(uname string, val []float32) {
 	uid := sd.CreateUniformLoc(uname)
-	var vallen int32
-	vallen = int32(len(val))
+	vallen := int32(len(val))
 	gl.Uniform1fv(uid, vallen, &val[0])
 }
 
@@ -76,7 +71,6 @@ func (sd *ShaderData) Init(filename string) {
 	var shaderType = ShaderTypeNone
 	// read shader file
 	sf, err := os.Open(filename)
-	fmt.Println("Preparing shader ", filename)
 	if err != nil {
 		panic("Failed to read shader file")
 	}
@@ -84,17 +78,16 @@ func (sd *ShaderData) Init(filename string) {
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		//  lines starting with "#shader" determine the following content
-		if strings.Index(scanner.Text(), "#shader") >= 0 {
-			if strings.Index(scanner.Text(), "FRAGMENT") >= 0 {
+		if strings.Contains(scanner.Text(), "#shader") {
+			if strings.Contains(scanner.Text(), "FRAGMENT") {
 				shaderType = ShaderTypeFragment
 				continue
-			} else if strings.Index(scanner.Text(), "VERTEX") >= 0 {
+			} else if strings.Contains(scanner.Text(), "VERTEX") {
 				shaderType = ShaderTypeVertex
 				continue
 			}
 		}
 		sd.ShaderSource[shaderType] += scanner.Text() + "\n"
-		//		shaderBuf[shaderType] += scanner.Text() + "\n"
 	}
 	sd.ShaderSource[ShaderTypeVertex] += "\x00"
 	sd.ShaderSource[ShaderTypeFragment] += "\x00"

@@ -85,8 +85,8 @@ func (g *Galaxy) Create(SysTarget int32, RTarget int16, TTarget int16) {
 	//	}
 
 	// create coordinates for the 'standard spiral' form
-	//g.CreateFormSpiral1()
-	g.CreateForm2()
+	g.CreateFormSpiral1()
+	//g.CreateForm2()
 
 	// ------------------ next steps
 	// create kdtree()
@@ -107,6 +107,7 @@ func (g *Galaxy) Create(SysTarget int32, RTarget int16, TTarget int16) {
 			g.Radius = g.Systems[i].Coords.Z
 		}
 	}
+
 
 }
 
@@ -224,7 +225,7 @@ func (g *Galaxy) AddArms(relRadius float64, numStars int32, numArms int32) {
 			pc.L = rand.NormFloat64() * randomSphereRadius
 			pc.A = rand.Float64() * twopi
 			randomSphere.FromPolar(pc)
-			
+
 			// flatten the ball
 			randomSphere.Z = int16(float64(randomSphere.Z) * g.ArmsEllipseFactor)
 
@@ -353,7 +354,6 @@ func (g *Galaxy) CreateCenterObject(sys *System) {
 			sys.CenterObject.InitHuge(g.StellarSizeTypes.Big.Types[objidx])
 		}
 
-
 		return
 		// single center object
 	case 2:
@@ -368,7 +368,7 @@ func (g *Galaxy) CreateCenterObject(sys *System) {
 			sys.CenterObject = StellarObject{}
 			sys.CenterObject.InitHuge(g.StellarSizeTypes.Huge.Types[objidx])
 
-		//	fmt.Println("- Huge Object:", sys.CenterObject)
+			//	fmt.Println("- Huge Object:", sys.CenterObject)
 			return
 		}
 		// else

@@ -2,10 +2,10 @@ package gui_opengl
 
 import (
 	"fmt"
-	"log"
 	"math"
+	"log"
 
-	"github.com/go-gl/gl/v4.4-core/gl"
+//	"github.com/go-gl/gl/v4.4-core/gl"
 
 	"github.com/go-gl/glfw/v3.2/glfw"
 
@@ -47,21 +47,7 @@ func (w *Window) Init() {
 	glfw.WindowHint(glfw.OpenGLForwardCompatible, 1)
 	// create a window mode and it's OpenGL Context
 	w.InitScreen(w.Width, w.Height, w.Title, w.Fullscreen)
-	// Init OpenGL
-	err = gl.Init()
-	if err != nil {
-		panic("Init error! - " + err.Error())
-	}
 
-	version := gl.GoStr(gl.GetString(gl.VERSION))
-	log.Println("OpenGL version", version)
-
-	// Enable Texture
-	gl.Enable(gl.TEXTURE_2D)
-
-	// Enable Blending
-	gl.Enable(gl.BLEND)
-	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE)
 }
 
 func (w *Window) InitScreen(width int, height int, title string, fullscreen bool) {
@@ -72,14 +58,14 @@ func (w *Window) InitScreen(width int, height int, title string, fullscreen bool
 		w.Vidmode = w.Monitor.GetVideoMode()
 		width = w.Vidmode.Width
 		height = w.Vidmode.Height
-		fmt.Println("Entering fullscreen @ ", width, " x ", height)
+		log.Println("Entering fullscreen @ ", width, " x ", height)
 	} else {
 		w.Monitor = nil
 	}
 	w.Window, err = glfw.CreateWindow(width, height, title, w.Monitor, nil)
 
 	if err != nil {
-		fmt.Println("glfw Window cannot be created.")
+		log.Println("glfw Window cannot be created.")
 		glfw.Terminate()
 		panic(err)
 	}
@@ -153,6 +139,10 @@ func (w *Window) DisplaySize() [2]float32 {
 func (w *Window) FramebufferSize() [2]float32 {
 	x, y := w.Window.GetFramebufferSize()
 	return [2]float32{float32(x), float32(y)}
+}
+
+func (w *Window) Cleanup() {
+	defer glfw.Terminate()
 }
 
 var glfwButtonIndexByID = map[glfw.MouseButton]int{

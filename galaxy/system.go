@@ -1,47 +1,51 @@
- package galaxy
+package galaxy
 
- import (
-	 "fmt"
-	 "strconv"
-	 "math"
- )
+import (
+	"fmt"
+	"math"
+	"strconv"
+)
 
- const (
+const (
 	LumMin  = 10.0
 	LumExp  = 0.20
 	LumMult = 15
- )
+)
 
- type Color struct {
+type Color struct {
 	R int32
 	G int32
 	B int32
 	A int32
 }
 
- type System struct {
+type System struct {
 	CenterObject StellarObject
-//	Coords   Coordinates `json:"coords"`
-	Lum      float64   `json:"lum"`
-	Colorstr string      `json:"color"`
-	Coords  CoordsI16
+	//	Coords   Coordinates `json:"coords"`
+	Lum      float64 `json:"lum"`
+	Colorstr string  `json:"color"`
+	Coords   CoordsI16
 	Color    Color
- }
+}
 
- func (s *System) print() {
-	 fmt.Printf("System - Coords %v", s.Coords)
- }
+func (s *System) print() {
+	fmt.Printf("System - Coords %v", s.Coords)
+}
 
- func (s *System) PlaceCenterObject() {
-		
- }
+func (s *System) PlaceCenterObject() {
+
+}
 
 func (s *System) SetColor(colorstr string, lum float64) {
 	if len(colorstr) < 5 {
-		s.Color.R=89
-		s.Color.G=22
-		s.Color.B=0
-		s.Lum=1000
+		s.Color.R = 89
+		//s.Color.G=22
+		//s.Color.B=89
+		s.Color.G = 0
+		s.Color.B = 89
+		//s.Lum=1000
+		s.Lum = 0.001
+		s.Color.A = 50
 	} else {
 		r, _ := strconv.ParseInt(colorstr[1:3], 16, 16)
 		g, _ := strconv.ParseInt(colorstr[3:5], 16, 16)

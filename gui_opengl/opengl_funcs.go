@@ -282,11 +282,7 @@ func SelectIBO(ibo uint32) {
 }
 
 func GetUniformLoc(program uint32, varname string) int32 {
-	//	fmt.Println("looking for uniform name ", varname)
 	loc := gl.GetUniformLocation(program, gl.Str(varname+"\x00"))
-	if loc == -1 {
-		fmt.Println("Uniform not found!", varname)
-	}
 	return loc
 }
 

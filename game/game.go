@@ -14,6 +14,14 @@ import (
 	gui "github.com/Jest0r/starex_go/gui_opengl"
 )
 
+const (
+	GameStateTitle    = 0
+	GameStateMainMenu = 1
+	GameStateCreate   = 2
+	GameStateLoad     = 3
+	GameStateActive   = 10
+)
+
 // Holding the configuration file data
 type Config struct {
 	Logging struct {
@@ -46,6 +54,7 @@ type Game struct {
 	Gui    gui.Gui
 	config Config
 	Galaxy galaxy.Galaxy
+	State  int
 }
 
 // Game initialisation
@@ -78,5 +87,6 @@ func (g *Game) Mainloop() {
 
 // Game destructor
 func (g *Game) Cleanup() {
-	fmt.Println("Cleaning up...")
+	fmt.Println("Exit. Cleaning up...")
+	defer g.Gui.Cleanup()
 }
