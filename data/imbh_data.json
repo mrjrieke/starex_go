@@ -1,0 +1,15 @@
+  [{
+    "sequence": 0,
+    "description": "Black Hole",
+    "type": "imbh",
+    "temperature": 0,
+    "radius": 0,
+    "mass": 30000,
+    "luminosity": 0,
+    "hab_zone": 0,
+    "abundance": 0,
+    "color_code": "#000000",
+    "prob": 1,
+    "rand_min": 0,
+    "rand_max": 1 
+  }]

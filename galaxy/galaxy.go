@@ -43,6 +43,7 @@ type Galaxy struct {
 	StarTypes        StarTypes
 	OStarTypes       StarTypes
 	WDTypes          StarTypes
+	IMBHTypes        StarTypes
 }
 
 func (g *Galaxy) Init() {
@@ -62,6 +63,11 @@ func (g *Galaxy) Init() {
 	g.StarTypes.ReadStarData("data/o_star_data.json")
 	g.StarTypes.ReadStarData("data/star_data.json")
 	g.StarTypes.ReadStarData("data/wd_data.json")
+
+	//	fmt.Println("STAR TYPES", g.StarTypes)
+	g.IMBHTypes.ReadStarData("data/imbh_data.json")
+
+	//	fmt.Println("IMBH TYPES", g.IMBHTypes)
 
 	g.Systems = []System{}
 
@@ -98,16 +104,21 @@ func (g *Galaxy) Create(SysTarget int32, RTarget int16, TTarget int16) {
 	fmt.Println("Creating system (central) objects")
 
 	for i := range g.Systems {
+		//		sys.CenterObject = &CenterObjectSingle{}
+		//		var sb StellarObjI
 		g.CreateCenterObject(&g.Systems[i])
-		g.Systems[i].SetColor(g.Systems[i].CenterObject.Color, g.Systems[i].CenterObject.Luminosity)
+		g.Systems[i].SetColor(g.Systems[i].CenterObject.Color(), g.Systems[i].CenterObject.Lum())
 		if g.Systems[i].Coords.X > g.Radius {
 			g.Radius = g.Systems[i].Coords.X
 		}
 		if g.Systems[i].Coords.Z > g.Radius {
 			g.Radius = g.Systems[i].Coords.Z
 		}
-	}
 
+		if g.Systems[i].Color.R == 200 {
+			fmt.Println("CO:", g.Systems[i].CenterObject)
+		}
+	}
 
 }
 
@@ -341,42 +352,97 @@ func (g *Galaxy) CreateCenterObject(sys *System) {
 	switch n {
 	case 1:
 		objidx := sample(g.StellarSizeTypes.Big.Cpm)
-		sys.CenterObject = StellarObject{}
+		sys.CenterObject = CenterObject{}
+		sb := StellarObj{}
 
 		switch objidx {
 		case STAR:
 			objidx = sample(g.StarTypes.Cpm)
-			sys.CenterObject.InitBig(g.StarTypes.Types[objidx])
+			sb.Init(g.StarTypes.Types[objidx])
+			sys.CenterObject.AddCenterObjectSingle(sb)
 		case WD:
 			objidx = sample(g.WDTypes.Cpm)
-			sys.CenterObject.InitBig(g.WDTypes.Types[objidx])
+			sb.Init(g.WDTypes.Types[objidx])
+			sys.CenterObject.AddCenterObjectSingle(sb)
 		default:
-			sys.CenterObject.InitHuge(g.StellarSizeTypes.Big.Types[objidx])
+			sb.Init(g.IMBHTypes.Types[0])
+			sys.CenterObject.AddCenterObjectSingle(sb)
 		}
-
-		return
 		// single center object
 	case 2:
+		objidx := []int{sample(g.StellarSizeTypes.Big.Cpm), sample(g.StellarSizeTypes.Big.Cpm)}
+		sys.CenterObject = CenterObject{}
+		sb := [2]StellarObj{}
+		for i, oi := range objidx {
+			switch oi {
+			case STAR:
+				subidx := sample(g.StarTypes.Cpm)
+				sb[i].Init(g.StarTypes.Types[subidx])
+			case WD:
+				subidx := sample(g.WDTypes.Cpm)
+				sb[i].Init(g.WDTypes.Types[subidx])
+			default:
+				sb[i].Init(g.IMBHTypes.Types[0])
+			}
+
+		}
+		sys.CenterObject.AddCenterObjectDouble(sb[0], sb[1])
+
 		// double center object
 	case 0:
-		// how many center objects of huge size?
+		// TODO - change that to a planet once they are there
 		n = sample(g.StellarSizeTypes.Huge.NumCpm)
+		//n = sample(g.StellarSizeTypes.Medium.NumCpm)
 		// Is center object a huge object?
 		if n > 0 {
 			//fmt.Println("Huge cpm:", g.StellarSizeTypes.Huge.Cpm)
-			objidx := sample(g.StellarSizeTypes.Huge.Cpm)
-			sys.CenterObject = StellarObject{}
-			sys.CenterObject.InitHuge(g.StellarSizeTypes.Huge.Types[objidx])
+			sys.CenterObject = CenterObject{}
+			var sb StellarObj = StellarObj{}
+//			objidx := sample(g.StellarSizeTypes.Huge.Cpm)
+			//sb.Init(g.StarTypes.Types[objidx])
+			sb.Init(g.IMBHTypes.Types[0])
+			sys.CenterObject.AddCenterObjectSingle(sb)
+			//			sb.Init(g.StellarSizeTypes.Big.Types[objidx])
+			//			sb.Init(st.Color, st.Luminosity, st.Type)
+			//sys.CenterObject = StellarObject{}
+			//sys.CenterObject.InitHuge(g.StellarSizeTypes.Huge.Types[objidx])
 
 			//	fmt.Println("- Huge Object:", sys.CenterObject)
 			return
-		}
-		// else
+		} else {
+		// that would mean single planets, no suns
 		// get 1-2 lonely planets
+		// TODO!
+			sys.CenterObject = CenterObject{}
+			var sb StellarObj = StellarObj{}
+			sb.Init(g.IMBHTypes.Types[0])
+			sys.CenterObject.AddCenterObjectSingle(sb)
+
+		}
 	default:
 		// multiple big objects, chaotic system
+		//		objidx := []int{sample(g.StellarSizeTypes.Big.Cpm), sample(g.StellarSizeTypes.Big.Cpm)}
+		sys.CenterObject = CenterObject{}
+		sb := []StellarObj{}
+		for i := 0; i < n; i++ {
+			oi := sample(g.StellarSizeTypes.Big.Cpm)
+			sb = append(sb, StellarObj{})
+			switch oi {
+			case STAR:
+				subidx := sample(g.StarTypes.Cpm)
+				sb[i].Init(g.StarTypes.Types[subidx])
+			case WD:
+				subidx := sample(g.WDTypes.Cpm)
+				sb[i].Init(g.WDTypes.Types[subidx])
+			default:
+				sb[i].Init(g.IMBHTypes.Types[0])
+			}
+
+		}
+		sys.CenterObject.AddCenterObjectMulti(sb)
 
 	}
+	//	fmt.Println("Center Object 2", sys.CenterObject)
 	/*
 		for _, st := range [3]*SizeType{&st.Huge, &st.Big, &st.Medium} {
 			n := sample(st.NumCpm)

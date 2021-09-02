@@ -538,10 +538,6 @@ func (g *Gui) Init() {
 func (g *Gui) PrepareScene() {
 	start := time.Now()
 
-	for _, st:=  range g.Galaxy.StarTypes.Types {
-		fmt.Println (st.Type, st.Luminosity)
-
-	}
 	// load data into displayable scene
 	g.Scene.LoadData(g.Galaxy, float32(g.Galaxy.Radius))
 

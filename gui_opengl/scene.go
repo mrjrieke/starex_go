@@ -18,11 +18,11 @@ func (sc *Scene) getHistograms(galaxy *galaxy.Galaxy) {
 	lumHist := make([]int, 256)
 	lumSCHist := make([]int, 256)
 	lumDfltHist := make(map[float64]int)
-	typeHist := make(map[string]int)
+//	typeHist := make(map[int]int)
 	var maxlum float64
 
 	for _, t := range galaxy.StarTypes.Types {
-		typeHist[t.Type] = 0
+	//	typeHist[t.Type] = 0
 		lumDfltHist[t.Luminosity] = 0
 	}
 
@@ -32,8 +32,8 @@ func (sc *Scene) getHistograms(galaxy *galaxy.Galaxy) {
 			maxlum = s.Lum
 		}
 
-		typeHist[s.CenterObject.Type]++
-		lumDfltHist[s.CenterObject.Luminosity]++
+		//typeHist[s.CenterObject.Type()]++
+		lumDfltHist[s.CenterObject.Lum()]++
 	}
 
 	// Lum histogram
@@ -55,7 +55,7 @@ func (sc *Scene) getHistograms(galaxy *galaxy.Galaxy) {
 		lumSCHist[int(l*255/maxlum)]++
 	}
 
-	fmt.Println(typeHist)
+//	fmt.Println(typeHist)
 	fmt.Println(lumDfltHist)
 	fmt.Println(maxlum, lumSCHist)
 	// ------
@@ -68,15 +68,12 @@ func (sc *Scene) LoadData(galaxy *galaxy.Galaxy, scaleFactor float32) {
 	sc.Colors = make([]float32, (galaxy.SysCount)*4)
 	sc.Lums = make([]float64, (galaxy.SysCount))
 
-	//	sc.getHistograms(galaxy)
-
 	for i, s := range galaxy.Systems {
 		sc.Lums[i] = s.Lum
 	}
 	sc.normalizeLum(0, 100_000, 100_000, 0.2)
 
-	sc.getHistograms(galaxy)
-	//_ = lum_hist
+	//	sc.getHistograms(galaxy)
 
 	for i, sys := range galaxy.Systems {
 		// switch Y and Z from original data to map the OpenGL coord system.
@@ -117,10 +114,8 @@ func (sc *Scene) normalizeLum(minvalue float64, maxvalue float64, newMax float64
 		}
 	}
 
-	lumDivisor = maxlum / maxvalue
-	fmt.Println("lum divisor", lumDivisor, "exponent", exponent)
-
-	lumDivisor = newMax / maxlum
+	lumDivisor = maxlum / newMax
+	//lumDivisor = newMax / maxlum
 
 	for i, l := range sc.Lums {
 		sc.Lums[i] = math.Pow((float64(l / lumDivisor)), exponent)

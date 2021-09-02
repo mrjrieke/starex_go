@@ -20,7 +20,8 @@ type Color struct {
 }
 
 type System struct {
-	CenterObject StellarObject
+	CenterObject CenterObject
+	//	CenterObject CenterObjectI
 	//	Coords   Coordinates `json:"coords"`
 	Lum      float64 `json:"lum"`
 	Colorstr string  `json:"color"`
@@ -32,19 +33,19 @@ func (s *System) print() {
 	fmt.Printf("System - Coords %v", s.Coords)
 }
 
-func (s *System) PlaceCenterObject() {
-
+func (s *System) PlaceCenterObject(co CenterObject) {
+	s.CenterObject = co
 }
 
 func (s *System) SetColor(colorstr string, lum float64) {
 	if len(colorstr) < 5 {
-		s.Color.R = 89
+		s.Color.R = 200
 		//s.Color.G=22
 		//s.Color.B=89
 		s.Color.G = 0
-		s.Color.B = 89
+		s.Color.B = 200
 		//s.Lum=1000
-		s.Lum = 0.001
+		s.Lum = 100000
 		s.Color.A = 50
 	} else {
 		r, _ := strconv.ParseInt(colorstr[1:3], 16, 16)
