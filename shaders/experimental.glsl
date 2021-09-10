@@ -49,6 +49,7 @@ void main() {
     // V of hsv is luminosity of the star, and fading slightly over distance
     hsv.z = vColor[3] * sDist;
     // back to rgb
+//    hsv.y *= 2.0;
     vec3 rgb = hsv2rgb(hsv);
     // alpha channel is fixed
     vColor[3] = 0.75;

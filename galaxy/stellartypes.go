@@ -89,16 +89,6 @@ func (st *SizeType) GetProbs() {
 	fmt.Println(st.Description, " - Probs:", st.Probs)
 }
 
-/*
-func (st *SizeType) GetRandomObject() StellarObject {
-	retO := StellarObject{}
-	retT := st.Types[sample(st.Cpm)]
-
-	retO.Init(retT)
-
-}
-*/
-
 type SizeTypes struct {
 	Massive SizeType
 	Huge    SizeType
@@ -118,9 +108,6 @@ func (st *SizeTypes) ReadSizeTypeData(fname string) {
 	json.Unmarshal([]byte(byteValue), st)
 
 	// This is very ugly
-	//stypelist := [7]*SizeType{&allSizeTypes.Massive, &allSizeTypes.Huge,
-	//	&allSizeTypes.Big, &allSizeTypes.Medium, &allSizeTypes.Small,
-	//	&allSizeTypes.DS_ptype, &allSizeTypes.DS_stype}
 	stypelist := [7]*SizeType{&st.Massive, &st.Huge,
 		&st.Big, &st.Medium, &st.Small,
 		&st.DS_ptype, &st.DS_stype}
@@ -131,26 +118,8 @@ func (st *SizeTypes) ReadSizeTypeData(fname string) {
 		st.GetProbs()
 		st.Cpm = getCPM(st.Probs)
 	}
-
-	//	fmt.Println(allSizeTypes)
-	//	st.Types = append(st.Types, result...)
-
-	//	return allSizeTypes
 }
 
-/*
-func (st *SizeTypes) GetRandomCenterObject() (*SizeType, int) {
-	for _, st := range [3]*SizeType{&st.Huge, &st.Big, &st.Medium} {
-		n := sample(st.NumCpm)
-//		fmt.Println("nums:", sample(st.NumCpm))
-		if n > 0 {
-			return st, n
-		}
-
-	}
-	return nil,0
-}
-*/
 
 // ------------------- Star_data.json ---------------
 type StarData struct {
@@ -195,11 +164,16 @@ func (st *StarTypes) ReadStarData(fname string) {
 	result := []StarData{}
 	json.Unmarshal([]byte(byteValue), &result)
 
+	// dirty fix for missing input values
+	for i := range result {
+		if result[i].Color == "" {
+			result[i].Color = "#000000"
+		}
+	}
+
 	st.Types = append(st.Types, result...)
 
 	// get CPM for number of objects in system
 	st.GetProbs()
 	st.Cpm = getCPM(st.Probs)
-	//	fmt.Println("Star Probs:", st.Probs, st.Cpm)
-
 }

@@ -2,10 +2,13 @@ package gui_opengl
 
 import (
 	"fmt"
-	"math"
+	"image"
+	"image/png"
 	"log"
+	"math"
+	"os"
 
-//	"github.com/go-gl/gl/v4.4-core/gl"
+	//	"github.com/go-gl/gl/v4.4-core/gl"
 
 	"github.com/go-gl/glfw/v3.2/glfw"
 
@@ -24,6 +27,10 @@ type Window struct {
 	Title      string
 	Width      int
 	Height     int
+	WinWidth   int
+	WinHeight  int
+	WinXPos    int
+	WinYPos    int
 	Fullscreen bool
 	Monitor    *glfw.Monitor
 	Vidmode    *glfw.VidMode
@@ -46,33 +53,76 @@ func (w *Window) Init() {
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
 	glfw.WindowHint(glfw.OpenGLForwardCompatible, 1)
 	// create a window mode and it's OpenGL Context
-	w.InitScreen(w.Width, w.Height, w.Title, w.Fullscreen)
+	w.InitScreen()
 
 }
 
-func (w *Window) InitScreen(width int, height int, title string, fullscreen bool) {
-
+//func (w *Window) InitScreen(width int, height int, title string, fullscreen bool) {
+func (w *Window) InitScreen() {
 	var err error
-	if fullscreen {
-		w.Monitor = glfw.GetPrimaryMonitor()
-		w.Vidmode = w.Monitor.GetVideoMode()
-		width = w.Vidmode.Width
-		height = w.Vidmode.Height
-		log.Println("Entering fullscreen @ ", width, " x ", height)
+	w.Monitor = glfw.GetPrimaryMonitor()
+	w.Vidmode = w.Monitor.GetVideoMode()
+	if w.Fullscreen {
+		w.Window, err = glfw.CreateWindow(w.Vidmode.Width, w.Vidmode.Width, w.Title, w.Monitor, nil)
 	} else {
-		w.Monitor = nil
+		w.Window, err = glfw.CreateWindow(w.Width, w.Height, w.Title, nil, nil)
 	}
-	w.Window, err = glfw.CreateWindow(width, height, title, w.Monitor, nil)
+	/*
+		if fullscreen {
+			w.Monitor = glfw.GetPrimaryMonitor()
+			w.Vidmode = w.Monitor.GetVideoMode()
+			width = w.Vidmode.Width
+			height = w.Vidmode.Height
+			log.Println("Entering fullscreen @ ", width, " x ", height)
+		} else {
+			w.Monitor = nil
+		}
 
+		// creater error
+		w.Window, err = glfw.CreateWindow(width, height, title, w.Monitor, nil)
+	*/
 	if err != nil {
-		log.Println("glfw Window cannot be created.")
+		log.Println("ERROR: glfw Window cannot be created.")
 		glfw.Terminate()
 		panic(err)
 	}
 
+	// Set windows icon - array with multiple sizes can be used
+	f, err := os.Open("resource/starex_logo.png")
+	if err != nil {
+		fmt.Println("WARN: Can't read icon - disregarded.")
+	} else {
+		img, _ := png.Decode(f)
+		w.Window.SetIcon([]image.Image{img})
+	}
+	defer f.Close()
+
 	// make the window's context current
 	w.Window.MakeContextCurrent()
 	glfw.SwapInterval(1)
+}
+
+func (w *Window) toggleFullscreen(realFullscreen bool) {
+	w.Fullscreen = !w.Fullscreen
+	if w.Fullscreen {
+		monResHeight := w.Monitor.GetVideoMode().Height
+		monResWidth := w.Monitor.GetVideoMode().Width
+		w.WinWidth, w.WinHeight = w.Window.GetSize()
+		w.WinXPos, w.WinYPos = w.Window.GetPos()
+		//fmt.Println ("Current Window Size (x,y,width,height)", w.WinXPos, w.WinYPos, w.WinWidth, w.WinHeight)
+		if realFullscreen {
+			fmt.Println("Trying to set Fullscreen")
+			w.Window.SetMonitor(w.Monitor, 0, 0, monResWidth, monResHeight, glfw.DontCare)
+		} else {
+			fmt.Println("Trying to enter Windowed Full Screen")
+			w.Window.SetMonitor(nil, 0, 0, monResWidth, monResHeight, glfw.DontCare)
+		}
+	} else {
+		fmt.Println("Trying to set to Windowed")
+		w.Window.SetMonitor(nil, w.WinXPos, w.WinYPos, w.WinWidth, w.WinHeight, glfw.DontCare)
+		//		w.Window.SetMonitor(nil,0,0,w.Width,w.Height,glfw.DontCare)
+	}
+
 }
 
 func (w *Window) PrepImGUI(io *imgui.IO) {

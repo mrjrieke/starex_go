@@ -61,7 +61,6 @@ func (cam *Camera) SetPositionRadial(dist float32, a float32, b float32) {
 	cam.X = distXZ * float32(math.Sin(float64(a)))
 	cam.Z = distXZ * float32(math.Cos(float64(a)))
 	cam.Pos = glm.Vec3{cam.X, cam.Y, cam.Z}
-	//fmt.Println("Camera Position: ", cam)
 }
 
 func (cam *Camera) GetViewMatrix() glm.Mat4 {

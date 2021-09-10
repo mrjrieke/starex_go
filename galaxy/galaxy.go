@@ -21,6 +21,8 @@ const (
 	X    = 0
 	Y    = 1
 	Z    = 2
+	IMBH = 0
+	SGS  = 1
 )
 
 type Galaxy struct {
@@ -40,22 +42,31 @@ type Galaxy struct {
 	sysHash           map[int64]bool
 
 	StellarSizeTypes SizeTypes
-	StarTypes        StarTypes
-	OStarTypes       StarTypes
-	WDTypes          StarTypes
-	IMBHTypes        StarTypes
+
+	StarTypes       StarTypes
+	OStarTypes      StarTypes
+	WDTypes         StarTypes
+	IMBHTypes       StarTypes
+	PlanetTypes     StarTypes
+	PlanetTypesNear StarTypes
+	PlanetTypesHZ   StarTypes
+	PlanetTypesFar  StarTypes
 }
 
 func (g *Galaxy) Init() {
 	// arms config
 	g.ArmsMaxRad = 2 * math.Pi
-	g.ArmsInnerRad = 800
+	//g.ArmsInnerRad = 800
 	g.ArmsOuterRad = 150
+	g.ArmsInnerRad = 1200
+	//g.ArmsOuterRad = 300
+	//g.ArmsEllipseFactor = 1
 	g.ArmsEllipseFactor = 0.3
 
 	g.sysHash = make(map[int64]bool)
 
 	g.StellarSizeTypes.ReadSizeTypeData("data/stellar_data.json")
+
 	g.OStarTypes.ReadStarData("data/o_star_data.json")
 	g.WDTypes.ReadStarData("data/wd_data.json")
 
@@ -64,10 +75,19 @@ func (g *Galaxy) Init() {
 	g.StarTypes.ReadStarData("data/star_data.json")
 	g.StarTypes.ReadStarData("data/wd_data.json")
 
-	//	fmt.Println("STAR TYPES", g.StarTypes)
 	g.IMBHTypes.ReadStarData("data/imbh_data.json")
 
-	//	fmt.Println("IMBH TYPES", g.IMBHTypes)
+	//	Planets
+	g.PlanetTypesNear.ReadStarData("data/planet_data_near.json")
+	g.PlanetTypesHZ.ReadStarData("data/planet_data_hz.json")
+	g.PlanetTypesFar.ReadStarData("data/planet_data_far.json")
+
+	// same, but into a single array
+	g.PlanetTypes.ReadStarData("data/planet_data_near.json")
+	g.PlanetTypes.ReadStarData("data/planet_data_hz.json")
+	g.PlanetTypes.ReadStarData("data/planet_data_far.json")
+
+	fmt.Println("Planet Types", g.PlanetTypes)
 
 	g.Systems = []System{}
 
@@ -116,7 +136,7 @@ func (g *Galaxy) Create(SysTarget int32, RTarget int16, TTarget int16) {
 		}
 
 		if g.Systems[i].Color.R == 200 {
-			fmt.Println("CO:", g.Systems[i].CenterObject)
+			fmt.Println("CO:", g.Systems[i].CenterObject.Type)
 		}
 	}
 
@@ -213,13 +233,19 @@ func (g *Galaxy) AddArms(relRadius float64, numStars int32, numArms int32) {
 	var sysCount int32
 	sys := make([]System, int(numStars))
 	dupes := 0
+	// TODO. make Arms denser inside, and 'lighter' on the edge, so it doesn't stop suddenly
 	angleIncrease := radius / float64(starsPerArm)
 	for armNum = 0; armNum < numArms; armNum++ {
+		// not sure why that is 1 here and not 0...
 		var i float64 = 1
 		var armAngle float64
 		armStartRad := g.ArmsMaxRad / float64(numArms) * float64(armNum)
 		// paint stars
 		for i < radius {
+			if sysCount == numStars {
+				fmt.Println("ERROR - too many stars! Terminating arm generation")
+				break
+			}
 			coords := CoordsI16{}
 			// offset for the star
 			randomSphere := CoordsI16{}
@@ -235,6 +261,7 @@ func (g *Galaxy) AddArms(relRadius float64, numStars int32, numArms int32) {
 
 			pc.L = rand.NormFloat64() * randomSphereRadius
 			pc.A = rand.Float64() * twopi
+			pc.B = rand.Float64() * twopi
 			randomSphere.FromPolar(pc)
 
 			// flatten the ball
@@ -392,36 +419,35 @@ func (g *Galaxy) CreateCenterObject(sys *System) {
 	case 0:
 		// TODO - change that to a planet once they are there
 		n = sample(g.StellarSizeTypes.Huge.NumCpm)
-		//n = sample(g.StellarSizeTypes.Medium.NumCpm)
 		// Is center object a huge object?
 		if n > 0 {
-			//fmt.Println("Huge cpm:", g.StellarSizeTypes.Huge.Cpm)
 			sys.CenterObject = CenterObject{}
 			var sb StellarObj = StellarObj{}
-//			objidx := sample(g.StellarSizeTypes.Huge.Cpm)
-			//sb.Init(g.StarTypes.Types[objidx])
-			sb.Init(g.IMBHTypes.Types[0])
+			objidx := sample(g.StellarSizeTypes.Huge.Cpm)
+			switch objidx {
+			case IMBH:
+				sb.Init(g.IMBHTypes.Types[0])
+			case SGS:
+				objidx = sample(g.OStarTypes.Cpm)
+				sb.Init(g.OStarTypes.Types[objidx])
+			default:
+				sb.Init(g.OStarTypes.Types[0])
+			}
 			sys.CenterObject.AddCenterObjectSingle(sb)
-			//			sb.Init(g.StellarSizeTypes.Big.Types[objidx])
-			//			sb.Init(st.Color, st.Luminosity, st.Type)
-			//sys.CenterObject = StellarObject{}
-			//sys.CenterObject.InitHuge(g.StellarSizeTypes.Huge.Types[objidx])
-
-			//	fmt.Println("- Huge Object:", sys.CenterObject)
-			return
 		} else {
-		// that would mean single planets, no suns
-		// get 1-2 lonely planets
-		// TODO!
+			// that would mean single planets, no suns
+			// get 1-2 lonely planets
+			// TODO!
+			// at the moment only 1!
 			sys.CenterObject = CenterObject{}
 			var sb StellarObj = StellarObj{}
-			sb.Init(g.IMBHTypes.Types[0])
+			objidx := sample(g.StellarSizeTypes.Medium.Cpm)
+			sb.Init(g.PlanetTypes.Types[objidx])
 			sys.CenterObject.AddCenterObjectSingle(sb)
 
 		}
 	default:
 		// multiple big objects, chaotic system
-		//		objidx := []int{sample(g.StellarSizeTypes.Big.Cpm), sample(g.StellarSizeTypes.Big.Cpm)}
 		sys.CenterObject = CenterObject{}
 		sb := []StellarObj{}
 		for i := 0; i < n; i++ {
@@ -442,17 +468,6 @@ func (g *Galaxy) CreateCenterObject(sys *System) {
 		sys.CenterObject.AddCenterObjectMulti(sb)
 
 	}
-	//	fmt.Println("Center Object 2", sys.CenterObject)
-	/*
-		for _, st := range [3]*SizeType{&st.Huge, &st.Big, &st.Medium} {
-			n := sample(st.NumCpm)
-			if n > 0 {
-				return st, n
-			}
-
-		}
-		return nil,0
-	*/
 }
 
 func (galaxy *Galaxy) LoadFromFile(filepath string) {

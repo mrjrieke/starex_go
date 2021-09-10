@@ -14,6 +14,7 @@ uniform mat4 uMVP;
 uniform float uDist;
 uniform sampler2D uRenderedTexture;
 uniform float uBrightThreshold;
+uniform float uSatMult;
 
 out VS_OUT {
     vec4 vColor;
@@ -55,6 +56,12 @@ void main() {
     vec3 hsv = rgb2hsv(vec3(vs_out.vColor));
     // V of hsv is luminosity of the star, and fading slightly over distance
     hsv.z = vs_out.vColor[3] * sDist;
+    // boost Saturation is desired - no clue why the stars are so 'faint'
+/*    hsv.y *= uSatMult;
+    if (hsv.y > 1.0) {
+        hsv.y = 1.0;
+    }
+    */
     // back to rgb
     vec3 rgb = hsv2rgb(hsv);
     // alpha channel is fixed

@@ -8,6 +8,7 @@ type Mouse struct {
 	BPressedY int
 	X int 
 	Y int
+	Pan bool
 }
 
 func (m *Mouse) pressButton(button int) {
@@ -32,5 +33,5 @@ func (m *Mouse) releaseButton(button int) {
 
 func (m *Mouse) move(x int, y int) {
 	m.X = x
-	m.Y = x
+	m.Y = y
 }

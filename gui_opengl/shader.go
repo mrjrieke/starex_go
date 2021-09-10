@@ -17,7 +17,7 @@ const (
 	ShaderTypeFragment = 1
 )
 
-type ShaderData struct {
+type Shader struct {
 	ShaderName   string
 	Program      uint32
 	Uniforms     map[string]int32
@@ -25,7 +25,7 @@ type ShaderData struct {
 	TexPtrs      [2]uint32
 }
 
-func (sd *ShaderData) GetUniformLoc(uname string) {
+func (sd *Shader) GetUniformLoc(uname string) {
 	unif := GetUniformLoc(sd.Program, uname)
 	if sd.Uniforms == nil {
 		sd.Uniforms = make(map[string]int32)
@@ -33,7 +33,7 @@ func (sd *ShaderData) GetUniformLoc(uname string) {
 	sd.Uniforms[uname] = unif
 }
 
-func (sd *ShaderData) CreateUniformLoc(uname string) int32 {
+func (sd *Shader) CreateUniformLoc(uname string) int32 {
 	var found bool
 	var uid int32
 	found = false
@@ -50,23 +50,26 @@ func (sd *ShaderData) CreateUniformLoc(uname string) int32 {
 	return uid
 }
 
-func (sd *ShaderData) SetFloatV(uname string, val []float32) {
+func (sd *Shader) SetFloatV(uname string, val []float32) {
 	uid := sd.CreateUniformLoc(uname)
 	vallen := int32(len(val))
 	gl.Uniform1fv(uid, vallen, &val[0])
 }
 
-func (sd *ShaderData) SetInt(uname string, val int32) {
+func (sd *Shader) SetInt(uname string, val int32) {
 	uid := sd.CreateUniformLoc(uname)
 	gl.Uniform1i(uid, val)
 }
 
-func (sd *ShaderData) SetFloat(uname string, val float32) {
+func (sd *Shader) SetFloat(uname string, val float32) {
 	uid := sd.CreateUniformLoc(uname)
 	gl.Uniform1f(uid, val)
+	var f float32 
+	gl.GetUniformfv(sd.Program, uid, &f)
+//	fmt.Println ("Uniform for ", uname, ": ", f)
 }
 
-func (sd *ShaderData) Init(filename string) {
+func (sd *Shader) Init(filename string) {
 	sd.ShaderName = filename
 	var shaderType = ShaderTypeNone
 	// read shader file
@@ -96,7 +99,7 @@ func (sd *ShaderData) Init(filename string) {
 	sd.CreateShaderProg()
 }
 
-func (sd *ShaderData) CreateShaderProg() {
+func (sd *Shader) CreateShaderProg() {
 	sd.Program = gl.CreateProgram()
 
 	GlClearError()
@@ -111,13 +114,13 @@ func (sd *ShaderData) CreateShaderProg() {
 	GlCheckError("createShader")
 }
 
-func (sd *ShaderData) Use() {
+func (sd *Shader) Use() {
 	GlClearError()
 	gl.UseProgram(sd.Program)
 	GlCheckError(fmt.Sprintf("UseProgram %s", sd.ShaderName))
 }
 
-func (sd *ShaderData) compileShader(shaderType uint32, source string) uint32 {
+func (sd *Shader) compileShader(shaderType uint32, source string) uint32 {
 	id := gl.CreateShader(shaderType)
 	csources, free := gl.Strs(source)
 	_ = free

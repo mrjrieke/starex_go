@@ -13,18 +13,6 @@ const (
 	DOUBLE = 21
 	MULTIPLE = 22
 )
-//"fmt"
-
-// -------- interfaces -------------
-/*
-type CenterObjectI interface {
-	Init()
-	AddCenterObject(StellarObj)
-	Color() string
-	Lum() float64
-	Type() string
-}
-*/
 
 type CenterObject struct {
 	//	Init()
@@ -97,59 +85,9 @@ type StellarObj struct {
 	starData *StarData
 }
 
-// parent
-/*func (so *StellarObj) Init(col string, lum float64, sotype string) {
-	so.Color = col
-	so.Luminosity = lum
-	so.Type = sotype
-}
-*/
-
 func (so *StellarObj) Init(st StarData) {
 	so.starData = &st
 	so.Color = st.Color
 	so.Luminosity = st.Luminosity
 	so.Type = st.Type
 }
-/*
-// childs
-type StellarObjBig struct {
-	StellarObj
-}
-
-func (so *StellarObjBig) Init(col string, lum float64, sotype string) {
-	so.StellarObj.Init(col, lum, sotype)
-}
-
-func (so *StellarObj) InitST(st StarData) {
-	so.Init(st.Color, st.Luminosity, st.Type)
-}
-
-
-type StellarObjHuge struct {
-	StellarObj
-}
-
-func (so *StellarObjHuge) Init(col string, lum float64, sotype string) {
-	//so.StellarObj.Init(col, lum, sotype)
-	so.Color = col
-	so.Luminosity = lum
-	so.Type = sotype
-}
-*/
-
-/*
-func (so *StellarObject) InitHuge(st SizeTypeData) {
-//	StellarObject.Init()
-
-	so.Color = st.Color
-	so.Luminosity = st.Luminosity
-	so.Type = st.Type
-}
-
-func (so *StellarObject) InitBig(st StarData) {
-	so.Color = st.Color
-	so.Luminosity = st.Luminosity
-	so.Type = st.Type
-}
-*/

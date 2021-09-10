@@ -29,23 +29,31 @@ import (
 )
 
 const (
+//	ScreenWidth      = 1700
+//	ScreenHeight     = 1000
 	ScreenWidth      = 1200
 	ScreenHeight     = 800
 	FullRotationTime = 15.0
 	CamX             = -20000
 	CamY             = -20000
 	CamZ             = 10000
-	CamViewAngle     = 35.0 // NOT focal length
-	CamAngleA        = 0
-	CamAngleB        = 30
-	MinCamDist       = 0.05
+	CamViewAngle     = 30.0 // NOT focal length
+	//CamViewAngle     = 35.0 // NOT focal length
+	CamAngleA  = 0
+	CamAngleB  = 30
+	MinCamDist = 0.05
 
-	InitialZoom     = 1.4
-	ZoomIncrement   = 0.01
-	RotateIncrement = 0.01
+	InitialZoom          = 1
+	ZoomIncrement        = 0.01
+	RotateIncrement      = 0.01
+	MousePanSensitivityX = 0.005
+	MousePanSensitivityY = -0.005
 
 	SceneNear = 0.1
 	SceneFar  = 100
+
+	SaturationMult = 2.0
+	SaturationMod  = 0.2
 
 	// turn off if 0
 	// vsync of my monitor is 60, so this will limit the CPU used
@@ -68,10 +76,10 @@ type Gui struct {
 	ImGUIRenderer *renderers.OpenGL3
 
 	// --- Shaders
-	Shader           ShaderData // Shader for simple (non blurred) display
-	BloomStep1Shader ShaderData // Step 1 for enabled lighting effect
-	BlurShader       ShaderData // Step 2 for enabled lighting effect, called multiple times
-	BloomShader      ShaderData // Step 3 and final step for enabled lighting effects
+	Shader           Shader // Shader for simple (non blurred) display
+	BloomStep1Shader Shader // Step 1 for enabled lighting effect
+	BlurShader       Shader // Step 2 for enabled lighting effect, called multiple times
+	BloomShader      Shader // Step 3 and final step for enabled lighting effects
 
 	// --- Shader options
 	uBrightThreshold float32
@@ -80,8 +88,12 @@ type Gui struct {
 	uWeights         [][]float32
 	uActiveWeight    int32
 	blurSteps        int
+	uSaturationMult  float32
 
 	showDisplayTitle bool
+
+	// --- Display stuff
+	autoRotate bool
 
 	// -----------
 	Galaxy               *galaxy.Galaxy
@@ -126,6 +138,7 @@ func (g *Gui) setCallbacks() {
 	g.Win.Window.SetKeyCallback(g.keyCallback)
 	g.Win.Window.SetMouseButtonCallback(g.mouseCallback)
 	g.Win.Window.SetPosCallback(g.posCallback)
+	g.Win.Window.SetCursorPosCallback(g.mousePosCallback)
 	g.Win.Window.SetScrollCallback(g.scrollCallback)
 }
 
@@ -152,7 +165,8 @@ func (g *Gui) windowSizeCallback(window *glfw.Window, width int, height int) {
 	g.InfoLogger.Println("Adjusting window")
 
 	gl.Viewport(0, 0, int32(width), int32(height))
-	g.Persp.AspectRatio = float32(g.Win.Width / g.Win.Height)
+	g.Persp.AspectRatio = float32(g.Win.Width) / float32(g.Win.Height)
+	g.PrepareScene()
 }
 
 func (g *Gui) mouseCallback(window *glfw.Window, button glfw.MouseButton, action glfw.Action, mod glfw.ModifierKey) {
@@ -162,6 +176,8 @@ func (g *Gui) mouseCallback(window *glfw.Window, button glfw.MouseButton, action
 			g.Mouse.pressButton(1)
 		case glfw.MouseButton2:
 			g.Mouse.pressButton(2)
+			g.autoRotate = false
+			g.Mouse.Pan = true
 		}
 	} else if action == glfw.Release {
 		switch button {
@@ -169,13 +185,26 @@ func (g *Gui) mouseCallback(window *glfw.Window, button glfw.MouseButton, action
 			g.Mouse.releaseButton(1)
 		case glfw.MouseButton2:
 			g.Mouse.releaseButton(2)
+			g.Mouse.Pan = false
+			g.autoRotate = true
 		}
 	}
 }
 
-func (g *Gui) posCallback(window *glfw.Window, xpos int, ypos int) {
-	g.Mouse.move(xpos, ypos)
+func (g *Gui) mousePosCallback(window *glfw.Window, xpos float64, ypos float64) {
+	if g.Mouse.Pan {
+		xdelta := (float64(g.Mouse.X) - xpos) * MousePanSensitivityX
+		ydelta := (float64(g.Mouse.Y) - ypos) * MousePanSensitivityY
+		g.Cam.SetPositionRadial(g.Cam.Dist, g.Cam.A+float32(xdelta), g.Cam.B+float32(ydelta))
+	}
+	g.Mouse.move(int(xpos), int(ypos))
+
 }
+
+// called when window is moved
+func (g *Gui) posCallback(window *glfw.Window, xpos int, ypos int) {
+}
+
 func (g *Gui) scrollCallback(window *glfw.Window, xpos float64, ypos float64) {
 	zi := float32(ZoomIncrement)
 	g.Cam.Dist += zi * float32(ypos) * 5
@@ -193,7 +222,12 @@ func (g *Gui) keyCallback(window *glfw.Window, key glfw.Key, scancode int, keyAc
 		}
 		switch key {
 		case glfw.KeyF11:
-			g.toggleFullscreen()
+			if mods == glfw.ModShift {
+				g.Win.toggleFullscreen(true)
+			} else {
+				g.Win.toggleFullscreen(false)
+			}
+//			g.toggleFullscreen()
 		case glfw.KeyEscape:
 			g.Win.Window.SetShouldClose(true)
 		case glfw.KeySpace:
@@ -207,6 +241,15 @@ func (g *Gui) keyCallback(window *glfw.Window, key glfw.Key, scancode int, keyAc
 			g.Cam.B += ZoomIncrement
 		case glfw.KeyS:
 			g.Cam.B -= ZoomIncrement
+		// --- saturation
+		case glfw.KeyY:
+			if g.uSaturationMult < 3.0 {
+				g.uSaturationMult += SaturationMod
+			}
+		case glfw.KeyH:
+			if g.uSaturationMult > SaturationMod {
+				g.uSaturationMult -= SaturationMod
+			}
 		// --- brightness threshold
 		case glfw.KeyR:
 			g.uBrightThreshold += 0.1
@@ -224,8 +267,9 @@ func (g *Gui) keyCallback(window *glfw.Window, key glfw.Key, scancode int, keyAc
 		// --- bloom / blur options
 		case glfw.KeyB:
 			g.BloomActive = !g.BloomActive
-		case glfw.KeyV:
-			g.uBloomBlur = 1 - g.uBloomBlur
+			//		case glfw.KeyV:
+
+			//			g.uBloomBlur = 1 - g.uBloomBlur
 		case glfw.KeyC:
 			g.uActiveWeight = (g.uActiveWeight + 1) % int32(len(g.uWeights))
 			g.InfoLogger.Println("Active Weight", g.uActiveWeight)
@@ -317,31 +361,6 @@ func (g *Gui) threaded_save(filename string, im *image.NRGBA, width int, height 
 
 // ----------- Toggles --------------
 
-func (g *Gui) toggleFullscreen() {
-	// Toggle fullscreen
-	g.Win.Fullscreen = !g.Win.Fullscreen
-	g.Win.Width, g.Win.Height = g.Win.Window.GetSize()
-	// Close the current window.
-	g.Win.Window.Destroy()
-	g.Win.Init()
-	// Enable Texture
-	gl.Enable(gl.TEXTURE_2D)
-	// Enable Blending
-	gl.Enable(gl.BLEND)
-	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE)
-	// Shaders
-	g.Shader.CreateShaderProg()
-	g.BloomStep1Shader.CreateShaderProg()
-	g.BlurShader.CreateShaderProg()
-	g.BloomShader.CreateShaderProg()
-	//	Feed Buffers
-	FeedColorBuffer(g.Scene.Colors)
-	FeedLumBuffer(g.Scene.Lums)
-	g.Shader.GetUniformLoc("uMVP")
-
-	g.setCallbacks()
-}
-
 func (g *Gui) togglePause() {
 	g.pause = !g.pause
 	if g.pause {
@@ -420,6 +439,7 @@ func (g *Gui) CreateGalaxy() {
 	g.InfoLogger.Println("Creating Galaxy")
 
 }
+
 func (g *Gui) LoadGalaxy() {
 	g.InfoLogger.Println("LoadingGalaxy")
 
@@ -444,6 +464,8 @@ func (g *Gui) Init() {
 	// IMGUI stuff
 	g.ImGUIContext = *imgui.CreateContext(nil)
 	g.ImGUIIO = imgui.CurrentIO()
+
+	g.autoRotate = true
 
 	g.Win.Init()
 	// Init OpenGL
@@ -496,26 +518,22 @@ func (g *Gui) Init() {
 	// get Uniform loc
 	g.Shader.GetUniformLoc("uMVP")
 
+	g.uSaturationMult = SaturationMult
 	// specific shader just for bloom effect
 	g.BloomStep1Shader.Init("shaders/bloom_step1.glsl")
-	g.BloomStep1Shader.GetUniformLoc("uMVP")
+	//	g.BloomStep1Shader.SetFloat("uSaturationMult", g.uSaturationMult)
 
 	g.BlurShader.Init("shaders/blur.glsl")
-	g.BlurShader.GetUniformLoc("uImage")
 	// init different blurring weights.
 	g.uWeights = append(g.uWeights, []float32{0.1216216, 0.054054, 0.016216})
 	g.uWeights = append(g.uWeights, []float32{0.1216216, 0.054054, 0.016216, 0.008})
 	//g.uWeights = append(g.uWeights, []float32{0.1216216, 0.054054, 0.016216, 0.012, 0.008, 0.005})
 	g.uWeights = append(g.uWeights, []float32{0.1216216, 0.054054, 0.016216, 0.012, 0.008, 0.005, 0, 0})
+	g.uWeights = append(g.uWeights, []float32{0.1216216, 0.054054, 0.016216, 0.012, 0.008, 0, 0, 0, 0.005})
 	g.uActiveWeight = 0
 
 	g.BloomShader.Init("shaders/bloom.glsl")
-	g.BloomShader.GetUniformLoc("uImage")
-	g.BloomShader.Use()
-	g.BloomShader.SetInt("bloom", 1)
-	g.BloomShader.SetInt("scene", 0)
-
-	g.uBrightThreshold = 1.0
+	g.uBrightThreshold = 0.0
 	g.uExposure = 1.0
 	g.uBloomBlur = 1
 
@@ -537,6 +555,22 @@ func (g *Gui) Init() {
 
 func (g *Gui) PrepareScene() {
 	start := time.Now()
+
+	g.BloomShader.Use()
+	g.BloomShader.GetUniformLoc("uImage")
+	g.BloomShader.GetUniformLoc("uSatMult")
+	g.BloomShader.SetInt("bloom", 1)
+	g.BloomShader.SetInt("scene", 0)
+
+	g.BloomStep1Shader.Use()
+	g.BloomStep1Shader.GetUniformLoc("uMVP")
+	g.BloomStep1Shader.GetUniformLoc("uSatMult")
+
+	g.BlurShader.Use()
+	g.BlurShader.GetUniformLoc("uImage")
+
+	fmt.Println(g.BloomStep1Shader.Uniforms)
+	fmt.Println(g.BloomShader.Uniforms)
 
 	// load data into displayable scene
 	g.Scene.LoadData(g.Galaxy, float32(g.Galaxy.Radius))
@@ -581,7 +615,8 @@ func (g *Gui) PrepareScene() {
 	g.Cam.Target = glm.Vec3{0.0, 0.0, 0.0}
 
 	// perspective stuff
-	g.Persp = Perspective{float32(g.Win.Width / g.Win.Height), SceneNear, SceneFar, 0}
+	g.Persp = Perspective{float32(g.Win.Width) / float32(g.Win.Height), SceneNear, SceneFar, 0}
+	//g.Persp = Perspective{float32(1), SceneNear, SceneFar, 0}
 	g.Persp.SetViewAngleDeg(CamViewAngle)
 
 	// set the viewport
@@ -608,12 +643,14 @@ func (g *Gui) Mainloop() {
 	imgui.Text(fmt.Sprintf("%d Stars", g.Galaxy.SysCount))
 	imgui.PopStyleColor()
 	imgui.Text(fmt.Sprintf("Bloom active: %v\n", g.BloomActive))
+	imgui.Text(fmt.Sprintf("Pan active: %v\n", g.Mouse.Pan))
 	imgui.End()
 	// --------------
-	imgui.SetNextWindowBgAlpha(0.5)
+	/*imgui.SetNextWindowBgAlpha(0.5)
 	for i := 0; i < 20; i++ {
 		imgui.Text("Random debug log entries go here...")
 	}
+	*/
 	curTime := time.Now()
 	// if one second passed, print frame draw time
 	if time.Since(g.lastTime) > time.Second {
@@ -633,6 +670,7 @@ func (g *Gui) Mainloop() {
 	if g.displayGalaxy {
 
 		if !g.BloomActive {
+			g.BloomShader.Use()
 			gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
 
 			gl.ClearColor(0.0, 0.0, 0.0, 1.0)
@@ -653,9 +691,11 @@ func (g *Gui) Mainloop() {
 
 		} else {
 
-			g.BloomStep1Shader.SetFloat("uBrightThreshold", g.uBrightThreshold)
+			//g.BloomStep1Shader.Use()
+			g.BloomShader.Use()
 			g.BloomShader.SetFloat("exposure", g.uExposure)
 			g.BloomShader.SetInt("bloomBlur", g.uBloomBlur)
+			g.BloomShader.SetFloat("uSatMult", g.uSaturationMult)
 			// ------------- BLOOM SHADER STUFF ------------
 			// render to given framebuffer
 			gl.BindFramebuffer(gl.FRAMEBUFFER, g.hdrFBO)
@@ -666,6 +706,8 @@ func (g *Gui) Mainloop() {
 			gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 			gl.Clear(gl.COLOR_BUFFER_BIT)
 			g.BloomStep1Shader.Use()
+			g.BloomStep1Shader.SetFloat("uBrightThreshold", g.uBrightThreshold)
+			//g.BloomStep1Shader.SetFloat("uSatMult", g.uSaturationMult)
 			// transformation matrix
 			mvpMatrix := GetMVPMatrix(g.Cam, g.Persp)
 			// Apply MVP (Model,View,Pre)
@@ -720,9 +762,11 @@ func (g *Gui) Mainloop() {
 
 			g.BloomShader.Use()
 			// first the 'normal' galaxy
+
 			gl.ActiveTexture(gl.TEXTURE1)
 			gl.BindTexture(gl.TEXTURE_2D, g.colorBuffers[0])
 			// then the bloom on top
+			// sequence doesn't matter - I checked both ways :p
 			gl.ActiveTexture(gl.TEXTURE0)
 			gl.BindTexture(gl.TEXTURE_2D, g.pingpongColorBuffers[1-horizontal])
 
@@ -748,8 +792,10 @@ func (g *Gui) Mainloop() {
 	}
 
 	// steady movement rate over time
-	g.rotPerFrameA = g.DegPerSecond * float32(time.Since(curTime).Seconds())
-	g.Cam.SetPositionRadial(g.Cam.Dist, g.Cam.A+g.rotPerFrameA, g.Cam.B)
+	if g.autoRotate {
+		g.rotPerFrameA = g.DegPerSecond * float32(time.Since(curTime).Seconds())
+		g.Cam.SetPositionRadial(g.Cam.Dist, g.Cam.A+g.rotPerFrameA, g.Cam.B)
+	}
 
 	// abstracting exit request from window internals
 	g.GameExitRequested = g.Win.Window.ShouldClose()

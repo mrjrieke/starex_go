@@ -12,6 +12,7 @@
                     "CGO_CFLAGS": "-I C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/include/",
                     "CGO_LDFLAGS": "-L C:/Users/hmedchen/glfw-3.3.4.bin.WIN64/lib-vc2019/ -static -lglfw3dll"
                 }
+                
             },
             "group": {
                 "kind": "build",

@@ -69,7 +69,9 @@ func (g *Game) Init() {
 	g.Gui.Galaxy = &g.Galaxy
 
 	// either Create()...
-	g.Galaxy.Create(200000, 20000, 2000)
+	// seems like the limit for a solid 60fps display on my current HW is around 700k-1M stars
+	// depnding on the blur steps :)
+	g.Galaxy.Create(300_000, 20000, 2000)
 	// ... or LoadFromFile()
 	//g.Galaxy.LoadFromFile("saves/galaxy2")
 
@@ -89,4 +91,5 @@ func (g *Game) Mainloop() {
 func (g *Game) Cleanup() {
 	fmt.Println("Exit. Cleaning up...")
 	defer g.Gui.Cleanup()
+	fmt.Println("Bye.")
 }
