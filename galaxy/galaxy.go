@@ -87,7 +87,7 @@ func (g *Galaxy) Init() {
 	g.PlanetTypes.ReadStarData("data/planet_data_hz.json")
 	g.PlanetTypes.ReadStarData("data/planet_data_far.json")
 
-	fmt.Println("Planet Types", g.PlanetTypes)
+//	fmt.Println("Planet Types", g.PlanetTypes)
 
 	g.Systems = []System{}
 
@@ -111,8 +111,8 @@ func (g *Galaxy) Create(SysTarget int32, RTarget int16, TTarget int16) {
 	//	}
 
 	// create coordinates for the 'standard spiral' form
-	g.CreateFormSpiral1()
-	//g.CreateForm2()
+	//g.CreateFormSpiral1()
+	g.CreateForm2()
 
 	// ------------------ next steps
 	// create kdtree()

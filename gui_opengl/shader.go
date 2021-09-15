@@ -61,12 +61,21 @@ func (sd *Shader) SetInt(uname string, val int32) {
 	gl.Uniform1i(uid, val)
 }
 
+func (sd *Shader) SetBool(uname string, val bool) {
+	ival := int32(0)
+	if val {
+		ival = 1
+	}
+	uid := sd.CreateUniformLoc(uname)
+	gl.Uniform1i(uid, ival)
+}
+
 func (sd *Shader) SetFloat(uname string, val float32) {
 	uid := sd.CreateUniformLoc(uname)
 	gl.Uniform1f(uid, val)
-	var f float32 
+	var f float32
 	gl.GetUniformfv(sd.Program, uid, &f)
-//	fmt.Println ("Uniform for ", uname, ": ", f)
+	//	fmt.Println ("Uniform for ", uname, ": ", f)
 }
 
 func (sd *Shader) Init(filename string) {

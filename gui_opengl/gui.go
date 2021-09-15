@@ -29,8 +29,6 @@ import (
 )
 
 const (
-//	ScreenWidth      = 1700
-//	ScreenHeight     = 1000
 	ScreenWidth      = 1200
 	ScreenHeight     = 800
 	FullRotationTime = 15.0
@@ -38,10 +36,9 @@ const (
 	CamY             = -20000
 	CamZ             = 10000
 	CamViewAngle     = 30.0 // NOT focal length
-	//CamViewAngle     = 35.0 // NOT focal length
-	CamAngleA  = 0
-	CamAngleB  = 30
-	MinCamDist = 0.05
+	CamAngleA        = 0
+	CamAngleB        = 30
+	MinCamDist       = 0.05
 
 	InitialZoom          = 1
 	ZoomIncrement        = 0.01
@@ -55,9 +52,12 @@ const (
 	SaturationMult = 2.0
 	SaturationMod  = 0.2
 
+	uStencilOverlay = false
 	// turn off if 0
 	// vsync of my monitor is 60, so this will limit the CPU used
-	FrameRateLimit = 100
+	FrameRateLimit = 70
+	// will try to adjust the video quality automatically to match frame rate
+	AutoTune = true
 
 	Bloom = true
 
@@ -109,6 +109,9 @@ type Gui struct {
 	vbo                  uint32
 	hdrFBO               uint32
 	BloomActive          bool
+
+	uStencilOverlay bool
+	overlayTexBuf  uint32
 
 	// logging
 	rawLog      *bytes.Buffer
@@ -221,17 +224,20 @@ func (g *Gui) keyCallback(window *glfw.Window, key glfw.Key, scancode int, keyAc
 			g.showDisplayTitle = false
 		}
 		switch key {
+		// Fullscreen
 		case glfw.KeyF11:
 			if mods == glfw.ModShift {
 				g.Win.toggleFullscreen(true)
 			} else {
 				g.Win.toggleFullscreen(false)
 			}
-//			g.toggleFullscreen()
+		// close window
 		case glfw.KeyEscape:
 			g.Win.Window.SetShouldClose(true)
+		// Pause
 		case glfw.KeySpace:
 			g.togglePause()
+		// save image
 		case glfw.KeyF1:
 			g.SaveImage("galaxy.png", g.Win.Width, g.Win.Height)
 			g.SaveBuffer(gl.COLOR_ATTACHMENT0, "col_a0.png", g.Win.Width, g.Win.Height)
@@ -267,15 +273,17 @@ func (g *Gui) keyCallback(window *glfw.Window, key glfw.Key, scancode int, keyAc
 		// --- bloom / blur options
 		case glfw.KeyB:
 			g.BloomActive = !g.BloomActive
-			//		case glfw.KeyV:
-
-			//			g.uBloomBlur = 1 - g.uBloomBlur
+		//  Choose the blurring Weights
 		case glfw.KeyC:
 			g.uActiveWeight = (g.uActiveWeight + 1) % int32(len(g.uWeights))
 			g.InfoLogger.Println("Active Weight", g.uActiveWeight)
+		// blur steps - Quality of the blur
 		case glfw.KeyX:
 			g.blurSteps = (g.blurSteps + 2) % 10
 			g.InfoLogger.Println("Blur Steps:", g.blurSteps)
+		// Image overlay toggle
+		case glfw.KeyO:
+			g.uStencilOverlay = !g.uStencilOverlay
 		// --- zooming and rotating
 		case glfw.KeyUp:
 			g.Cam.Dist -= ZoomIncrement
@@ -458,6 +466,8 @@ func (g *Gui) Init() {
 
 	g.BloomActive = Bloom
 
+	g.uStencilOverlay = uStencilOverlay
+
 	// neccessary, otherwise everything breaks.
 	runtime.LockOSThread()
 
@@ -569,9 +579,6 @@ func (g *Gui) PrepareScene() {
 	g.BlurShader.Use()
 	g.BlurShader.GetUniformLoc("uImage")
 
-	fmt.Println(g.BloomStep1Shader.Uniforms)
-	fmt.Println(g.BloomShader.Uniforms)
-
 	// load data into displayable scene
 	g.Scene.LoadData(g.Galaxy, float32(g.Galaxy.Radius))
 
@@ -619,6 +626,10 @@ func (g *Gui) PrepareScene() {
 	//g.Persp = Perspective{float32(1), SceneNear, SceneFar, 0}
 	g.Persp.SetViewAngleDeg(CamViewAngle)
 
+	// ----- TRY for texture
+	// Set windows icon - array with multiple sizes can be used
+	g.overlayTexBuf = FeedOverlayTexture("resource/texture.png", int32(g.Win.Width), int32(g.Win.Height))
+
 	// set the viewport
 	gl.Viewport(0, 0, int32(g.Win.Width), int32(g.Win.Height))
 }
@@ -626,6 +637,7 @@ func (g *Gui) PrepareScene() {
 // ----------- MAINLOOP --------------
 // Called once per Gameloop
 func (g *Gui) Mainloop() {
+	curTime := time.Now()
 	// imgui stuff
 	g.Win.NewFrame()
 	imgui.NewFrame()
@@ -651,7 +663,6 @@ func (g *Gui) Mainloop() {
 		imgui.Text("Random debug log entries go here...")
 	}
 	*/
-	curTime := time.Now()
 	// if one second passed, print frame draw time
 	if time.Since(g.lastTime) > time.Second {
 
@@ -671,6 +682,7 @@ func (g *Gui) Mainloop() {
 
 		if !g.BloomActive {
 			g.BloomShader.Use()
+
 			gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
 
 			gl.ClearColor(0.0, 0.0, 0.0, 1.0)
@@ -695,6 +707,9 @@ func (g *Gui) Mainloop() {
 			g.BloomShader.Use()
 			g.BloomShader.SetFloat("exposure", g.uExposure)
 			g.BloomShader.SetInt("bloomBlur", g.uBloomBlur)
+			g.BloomShader.SetInt("overlayTex", 2)
+			g.BloomShader.SetBool("uOverlayEnabled", g.uStencilOverlay)
+
 			g.BloomShader.SetFloat("uSatMult", g.uSaturationMult)
 			// ------------- BLOOM SHADER STUFF ------------
 			// render to given framebuffer
@@ -763,12 +778,22 @@ func (g *Gui) Mainloop() {
 			g.BloomShader.Use()
 			// first the 'normal' galaxy
 
+			// -----
+			// ---- TEst - adding a image texture on top
+
+			gl.ActiveTexture(gl.TEXTURE2)
+			gl.BindTexture(gl.TEXTURE_2D, g.overlayTexBuf)
+
 			gl.ActiveTexture(gl.TEXTURE1)
 			gl.BindTexture(gl.TEXTURE_2D, g.colorBuffers[0])
 			// then the bloom on top
 			// sequence doesn't matter - I checked both ways :p
 			gl.ActiveTexture(gl.TEXTURE0)
 			gl.BindTexture(gl.TEXTURE_2D, g.pingpongColorBuffers[1-horizontal])
+
+			//			RenderQuad()
+
+			//			g.BlurShader.Use()
 
 			RenderQuad()
 
@@ -786,11 +811,6 @@ func (g *Gui) Mainloop() {
 	// Poll for and process events
 	glfw.PollEvents()
 
-	// limit Frame Rate
-	if g.frameRateLimit > 0 {
-		time.Sleep(time.Duration(g.tick - time.Since(curTime)))
-	}
-
 	// steady movement rate over time
 	if g.autoRotate {
 		g.rotPerFrameA = g.DegPerSecond * float32(time.Since(curTime).Seconds())
@@ -799,5 +819,10 @@ func (g *Gui) Mainloop() {
 
 	// abstracting exit request from window internals
 	g.GameExitRequested = g.Win.Window.ShouldClose()
+
+	// limit Frame Rate
+	if g.frameRateLimit > 0 {
+		time.Sleep(time.Duration(g.tick - time.Since(curTime)))
+	}
 
 }

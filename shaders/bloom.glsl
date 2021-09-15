@@ -6,11 +6,14 @@
 
 layout(location = 0) in vec3 vPos;
 layout(location = 1) in vec2 vTexCoords;
+layout(location = 2) in vec2 vOverlayTex;
 
 out vec2 TexCoords;
+out vec2 OvTexCoords;
 
 void main(){
     TexCoords = vTexCoords;
+    OvTexCoords = vOverlayTex;
 	gl_Position = vec4(vPos, 1.0);
 }
 
@@ -22,12 +25,15 @@ void main(){
 out vec4 FragColor;
 
 in vec2 TexCoords;
+in vec2 OvTexCoords;
 
 uniform sampler2D scene;
 uniform sampler2D bloomBlur;
+uniform sampler2D overlayTex;
 uniform bool bloom;
 uniform float exposure;
 uniform float uSatMult;
+uniform bool uOverlayEnabled;
 
 // All components are in the range [0…1], including hue.
 vec3 rgb2hsv(vec3 c)
@@ -71,5 +77,10 @@ void main()
     result = hsv2rgb(hsv);
     
 
-    FragColor = vec4(result, 1.0);
+    if (uOverlayEnabled) {
+        vec4 ovrly = texture(overlayTex, TexCoords).rgba;
+        FragColor =  vec4((result.rgb * ovrly.rgb),1.0); 
+    } else {
+        FragColor =  vec4(result.rgb ,1.0); 
+    }
 }

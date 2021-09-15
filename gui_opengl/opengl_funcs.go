@@ -7,6 +7,11 @@ package gui_opengl
 
 import (
 	"fmt"
+	"image"
+
+	"image/draw"
+	"image/png"
+	"os"
 	"strconv"
 
 	// > 4.4 panics on windows
@@ -56,6 +61,56 @@ func createTextures(amount int32, fbo uint32) [2]uint32 {
 }
 
 var vao uint32
+
+func FeedOverlayTexture(texFileName string, width int32, height int32) uint32 {
+	var tex uint32
+	var img image.Image
+	var rgba *image.RGBA
+	_ = img
+	_ = rgba
+	f, err := os.Open(texFileName)
+	if err != nil {
+		fmt.Println("WARN: Can't read texture - disregarded.")
+		return 0
+	}
+	img, _ = png.Decode(f)
+	rgba = image.NewRGBA(img.Bounds())
+	draw.Draw(rgba, rgba.Bounds(), img, image.Pt(0, 0), draw.Src)
+	defer f.Close()
+
+	gl.GenTextures(1, &tex)
+	GlClearError()
+	gl.BindTexture(gl.TEXTURE_2D, tex)
+
+	GlCheckError("Bind Texture")
+
+	GlClearError()
+
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_R, gl.REPEAT)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	GlCheckError("Tex Parameteri")
+
+	// image need to be flipped vertically
+	imgWidth, imgHeight := img.Bounds().Dx(), img.Bounds().Dy()
+	data := make([]byte, imgWidth*imgHeight*4)
+	lineLen := imgWidth * 4
+	dest := len(data) - lineLen
+	for src := 0; src < len(rgba.Pix); src += rgba.Stride {
+		copy(data[dest:dest+lineLen], rgba.Pix[src:src+rgba.Stride])
+		dest -= lineLen
+	}
+
+	GlClearError()
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, int32(imgWidth), int32(imgHeight), 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(data))
+	//gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, int32(rgba.Rect.Size().X), int32(rgba.Rect.Size().Y), 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(rgba.Pix))
+	GlCheckError("Tex Image 2D2")
+
+	//	gl.BindTexture(gl.TEXTURE_2D, tex)
+	return tex
+
+}
 
 func FeedSceneToBuffers(positions []float32, colors []float32, width int32, height int32) (uint32, uint32, uint32, uint32) {
 	var tex uint32

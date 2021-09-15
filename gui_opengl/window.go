@@ -8,8 +8,6 @@ import (
 	"math"
 	"os"
 
-	//	"github.com/go-gl/gl/v4.4-core/gl"
-
 	"github.com/go-gl/glfw/v3.2/glfw"
 
 	"github.com/inkyblackness/imgui-go/v4"
@@ -20,6 +18,9 @@ const (
 	mouseButtonSecondary = 1
 	mouseButtonTertiary  = 2
 	mouseButtonCount     = 3
+
+	// active Monitor for real fullscreen. 0 is always the primary monitor
+	activeMonitor = 1
 )
 
 type Window struct {
@@ -32,7 +33,9 @@ type Window struct {
 	WinXPos    int
 	WinYPos    int
 	Fullscreen bool
+	Monitors    []*glfw.Monitor
 	Monitor    *glfw.Monitor
+	ActiveMonitor int
 	Vidmode    *glfw.VidMode
 
 	// part of the conversion to imgui
@@ -48,6 +51,10 @@ func (w *Window) Init() {
 		fmt.Printf("FATAL: Failed to initialize glfw")
 		panic(err)
 	}
+
+	// Set active monitor for real fullscreen display
+	w.ActiveMonitor = activeMonitor
+
 	glfw.WindowHint(glfw.ContextVersionMajor, 4)
 	glfw.WindowHint(glfw.ContextVersionMinor, 4)
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
@@ -57,30 +64,20 @@ func (w *Window) Init() {
 
 }
 
-//func (w *Window) InitScreen(width int, height int, title string, fullscreen bool) {
 func (w *Window) InitScreen() {
 	var err error
-	w.Monitor = glfw.GetPrimaryMonitor()
+	w.Monitors = glfw.GetMonitors()
+	if w.ActiveMonitor >= len(w.Monitors) {
+		fmt.Println("Desired Monitor not found. Using default")
+		w.ActiveMonitor = 0
+	}
+	w.Monitor = w.Monitors[w.ActiveMonitor]
 	w.Vidmode = w.Monitor.GetVideoMode()
 	if w.Fullscreen {
 		w.Window, err = glfw.CreateWindow(w.Vidmode.Width, w.Vidmode.Width, w.Title, w.Monitor, nil)
 	} else {
 		w.Window, err = glfw.CreateWindow(w.Width, w.Height, w.Title, nil, nil)
 	}
-	/*
-		if fullscreen {
-			w.Monitor = glfw.GetPrimaryMonitor()
-			w.Vidmode = w.Monitor.GetVideoMode()
-			width = w.Vidmode.Width
-			height = w.Vidmode.Height
-			log.Println("Entering fullscreen @ ", width, " x ", height)
-		} else {
-			w.Monitor = nil
-		}
-
-		// creater error
-		w.Window, err = glfw.CreateWindow(width, height, title, w.Monitor, nil)
-	*/
 	if err != nil {
 		log.Println("ERROR: glfw Window cannot be created.")
 		glfw.Terminate()
@@ -103,13 +100,17 @@ func (w *Window) InitScreen() {
 }
 
 func (w *Window) toggleFullscreen(realFullscreen bool) {
+	// toggle fullscreen indicator
 	w.Fullscreen = !w.Fullscreen
+	// if Fullscreen (either "real" or "fullscreen window")
 	if w.Fullscreen {
 		monResHeight := w.Monitor.GetVideoMode().Height
 		monResWidth := w.Monitor.GetVideoMode().Width
 		w.WinWidth, w.WinHeight = w.Window.GetSize()
 		w.WinXPos, w.WinYPos = w.Window.GetPos()
-		//fmt.Println ("Current Window Size (x,y,width,height)", w.WinXPos, w.WinYPos, w.WinWidth, w.WinHeight)
+		w.Width = monResWidth
+		w.Height = monResHeight
+
 		if realFullscreen {
 			fmt.Println("Trying to set Fullscreen")
 			w.Window.SetMonitor(w.Monitor, 0, 0, monResWidth, monResHeight, glfw.DontCare)
@@ -120,7 +121,6 @@ func (w *Window) toggleFullscreen(realFullscreen bool) {
 	} else {
 		fmt.Println("Trying to set to Windowed")
 		w.Window.SetMonitor(nil, w.WinXPos, w.WinYPos, w.WinWidth, w.WinHeight, glfw.DontCare)
-		//		w.Window.SetMonitor(nil,0,0,w.Width,w.Height,glfw.DontCare)
 	}
 
 }
@@ -155,15 +155,16 @@ func (w *Window) PrepImGUI(io *imgui.IO) {
 
 // NewFrame marks the begin of a render pass. It forwards all current state to imgui IO.
 func (w *Window) NewFrame() {
-	// Setup display size (every frame to accommodate for window resizing)
-	w.imguiIO.SetDisplaySize(imgui.Vec2{X: float32(w.Width), Y: float32(w.Height)})
-
 	// Setup time step
 	currentTime := glfw.GetTime()
 	if w.time > 0 {
 		w.imguiIO.SetDeltaTime(float32(currentTime - w.time))
 	}
 	w.time = currentTime
+
+	// Setup display size (every frame to accommodate for window resizing)
+	w.imguiIO.SetDisplaySize(imgui.Vec2{X: float32(w.Width), Y: float32(w.Height)})
+
 
 	// Setup inputs
 	if w.Window.GetAttrib(glfw.Focused) != 0 {
