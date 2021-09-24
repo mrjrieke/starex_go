@@ -10,6 +10,9 @@ import (
 	"math/rand"
 	"os"
 	"time"
+
+	"github.com/kyroy/kdtree"
+	"github.com/kyroy/kdtree/kdrange"
 )
 
 const (
@@ -26,8 +29,14 @@ const (
 )
 
 type Galaxy struct {
-	Systems  []System
-	SysCount int32
+	Systems []*System
+	//SysMap           map[int16]map[int16]map[int16]*System
+	SysCount         int32
+	HilightedSystems []int
+	sysHash          map[int64]bool    // for quick collision checking
+	sysMap           map[int64]*System // for quick coord lookup
+
+	Tree kdtree.KDTree
 
 	SysTarget       int32
 	RadiusTarget    int16 // what radius are we aiming for
@@ -39,7 +48,6 @@ type Galaxy struct {
 	ArmsOuterRad      int16
 	ArmsInnerRad      int16
 	ArmsEllipseFactor float64
-	sysHash           map[int64]bool
 
 	StellarSizeTypes SizeTypes
 
@@ -53,17 +61,26 @@ type Galaxy struct {
 	PlanetTypesFar  StarTypes
 }
 
+func (g *Galaxy) PrintHashes() {
+	//	fmt.Println(len(g.sysHash), g.sysHash)
+	//	fmt.Println(len(g.sysMap), g.sysMap)
+	for key := range g.sysMap {
+		fmt.Println(key, g.sysHash[key], g.sysMap[key])
+	}
+}
+
 func (g *Galaxy) Init() {
 	// arms config
 	g.ArmsMaxRad = 2 * math.Pi
-	//g.ArmsInnerRad = 800
 	g.ArmsOuterRad = 150
 	g.ArmsInnerRad = 1200
-	//g.ArmsOuterRad = 300
-	//g.ArmsEllipseFactor = 1
 	g.ArmsEllipseFactor = 0.3
 
 	g.sysHash = make(map[int64]bool)
+
+	g.sysMap = make(map[int64]*System)
+
+	g.Tree = kdtree.KDTree{}
 
 	g.StellarSizeTypes.ReadSizeTypeData("data/stellar_data.json")
 
@@ -87,23 +104,102 @@ func (g *Galaxy) Init() {
 	g.PlanetTypes.ReadStarData("data/planet_data_hz.json")
 	g.PlanetTypes.ReadStarData("data/planet_data_far.json")
 
-//	fmt.Println("Planet Types", g.PlanetTypes)
+	g.Systems = []*System{}
+	//	g.HilightedSystems = []int
 
-	g.Systems = []System{}
+	//	rand.Seed(0)
+}
 
-	rand.Seed(0)
+func (g *Galaxy) AddSystemAt(coords CoordsI16) *System {
+	// get new object
+	sys := new(System)
+	// new coords struct
+	sys.Coords = coords
+
+	// ---- record system into look up structures ----
+	// append System to list of systems
+	g.Systems = append(g.Systems, sys)
+	// append System to the last added system to the Hashmap
+	coordHash := g.getCoordsHash(sys.Coords)
+	g.sysMap[coordHash] = sys
+	// insert system into kdtree
+	g.Tree.Insert(sys)
+	// -------
+
+	// create center objects
+	g.CreateCenterObject(sys)
+	sys.SetColor(sys.CenterObject.Color(), sys.CenterObject.Lum())
+
+	// rough method of finding the max radius
+	// to be further refined - maybe by x*x + y*y > g.Radius**2
+	if sys.Coords.X > g.Radius {
+		g.Radius = sys.Coords.X
+	}
+	if sys.Coords.Z > g.Radius {
+		g.Radius = sys.Coords.Z
+	}
+
+	g.SysCount++
+	return sys
+}
+
+func (g *Galaxy) getCoordsHash(coords CoordsI16) int64 {
+	return int64(int64(coords.Z)<<32 + int64(coords.X)<<16 + int64(coords.Y))
+}
+
+func (g *Galaxy) GetSysByCoords(c CoordsI16) *System {
+	cHash := g.getCoordsHash(c)
+
+	if g.sysHash[cHash] {
+		return g.sysMap[cHash]
+	} else {
+		panic("PANIC: can't find system hash!")
+		fmt.Println("ERROR!")
+		return nil
+	}
+}
+
+func (g *Galaxy) GetRandomSystem() (int, *System) {
+	ind := rand.Intn(int(g.SysCount - 1))
+	return ind, g.Systems[ind]
+}
+
+func (g *Galaxy) GetKNearestSystems(s *System, n int) []kdtree.Point {
+	points := g.Tree.KNN(s, 2)
+	return points
+}
+
+func (g *Galaxy) GetSystemsInRadius(s *System, r int16) []CoordsI16 {
+	radSquare := float64(r) * float64(r)
+	var inRange []CoordsI16
+
+	pointsInSquare := (g.Tree.RangeSearch(kdrange.New(
+		float64(s.Coords.X-r), float64(s.Coords.X+r),
+		float64(s.Coords.Y-r), float64(s.Coords.Y+r),
+		float64(s.Coords.Z-r), float64(s.Coords.Z+r))))
+
+	for _, pt := range pointsInSquare {
+		sys := CoordsI16{X: int16(pt.Dimension(0)), Y: int16(pt.Dimension(1)), Z: int16(pt.Dimension(2))}
+		if s.Coords.DistanceSq(sys) <= radSquare {
+			inRange = append(inRange, sys)
+		}
+
+	}
+
+	fmt.Println("Get Systems in Radius -  Systems in Square / in Radius", len(pointsInSquare), len(inRange))
+
+	return inRange
 }
 
 // Create The galaxy content.
 // in here we will branch off into the randomizer and the various galaxy forms to create
-//func (g *Galaxy) Create() {
 func (g *Galaxy) Create(SysTarget int32, RTarget int16, TTarget int16) {
 	starttime := time.Now()
 	g.SysTarget = SysTarget
 	g.RadiusTarget = RTarget
 	g.ThicknessTarget = TTarget
 
-	rand.Seed(0)
+	//	rand.Seed(0)
 
 	// Activate sin/cos mapping if number of stars > 40000
 	//	if g.SysTarget >= 50000 {
@@ -111,34 +207,13 @@ func (g *Galaxy) Create(SysTarget int32, RTarget int16, TTarget int16) {
 	//	}
 
 	// create coordinates for the 'standard spiral' form
-	//g.CreateFormSpiral1()
-	g.CreateForm2()
+	g.CreateFormSpiral1()
+	//g.CreateForm2()
 
 	// ------------------ next steps
-	// create kdtree()
-	// create system contents_step1()
-	// system content step 2 is only created once the system is 'used'
 	fmt.Println("Creation took ", time.Since(starttime))
 
 	starttime = time.Now()
-	fmt.Println("Creating system (central) objects")
-
-	for i := range g.Systems {
-		//		sys.CenterObject = &CenterObjectSingle{}
-		//		var sb StellarObjI
-		g.CreateCenterObject(&g.Systems[i])
-		g.Systems[i].SetColor(g.Systems[i].CenterObject.Color(), g.Systems[i].CenterObject.Lum())
-		if g.Systems[i].Coords.X > g.Radius {
-			g.Radius = g.Systems[i].Coords.X
-		}
-		if g.Systems[i].Coords.Z > g.Radius {
-			g.Radius = g.Systems[i].Coords.Z
-		}
-
-		if g.Systems[i].Color.R == 200 {
-			fmt.Println("CO:", g.Systems[i].CenterObject.Type)
-		}
-	}
 
 }
 
@@ -170,7 +245,6 @@ func (g *Galaxy) CreateForm2() {
 // ATTENTION: relThickness is the SIGMA of the Normvariate, so 31.x% of all values are OUTSIDE of the value
 // AMENDMENT - swapped to 2*SIGMA, so only ~4.55% of all values are outside
 func (g *Galaxy) AddDisc(relRadius float64, relThickness float64, numStars int32) {
-	sys := make([]System, numStars)
 	// to adjust to 2*sigma
 	radius := relRadius * float64(g.RadiusTarget)
 	halfRadius := radius * 0.5
@@ -196,15 +270,16 @@ func (g *Galaxy) AddDisc(relRadius float64, relThickness float64, numStars int32
 		// flatten ball
 		coords.Z = int16(float64(coords.Z) / flatten)
 
-		// create an index of z<<32+x<<16+y (unique ID)
-		map_idx := int64(int64(coords.Z)<<32 + int64(coords.X)<<16 + int64(coords.Y))
+		map_idx := g.getCoordsHash(coords)
 
 		// if there isn't a system at that location
 		if !g.sysHash[map_idx] {
+			//			fmt.Println(map_idx, g.sysHash[map_idx])
 			// set it as occupied
 			g.sysHash[map_idx] = true
 			// add to list
-			sys[s].Coords = coords
+			//	sys[s].Coords = coords
+			g.AddSystemAt(coords)
 			/// and move on
 			s++
 		} else {
@@ -214,10 +289,9 @@ func (g *Galaxy) AddDisc(relRadius float64, relThickness float64, numStars int32
 
 		// TODO: check dupes
 	}
-	fmt.Printf("%d Stars in disc created (%d). dupes: %d \n", s, len(sys), dupes)
-	g.Systems = append(g.Systems, sys...)
-	//	fmt.Println(len(g.Systems), g.Systems)
-	g.SysCount += numStars
+	//	fmt.Printf("%d Stars in disc created (%d). dupes: %d \n", s, len(sys), dupes)
+
+	//	g.AddSystems(numStars, sys)
 }
 
 // create a set of spiral arms and adds it
@@ -229,9 +303,9 @@ func (g *Galaxy) AddArms(relRadius float64, numStars int32, numArms int32) {
 
 	fmt.Println("Target stars: ", numStars)
 	// per arm
-	var armNum int32
-	var sysCount int32
-	sys := make([]System, int(numStars))
+	var armNum int32 = 0
+	var sysCount int32 = 0
+	//	sys := make([]System, int(numStars))
 	dupes := 0
 	// TODO. make Arms denser inside, and 'lighter' on the edge, so it doesn't stop suddenly
 	angleIncrease := radius / float64(starsPerArm)
@@ -271,17 +345,17 @@ func (g *Galaxy) AddArms(relRadius float64, numStars int32, numArms int32) {
 			coords = coords.Add(randomSphere)
 
 			// ch3eck for dupes
-			// create an index of z<<32+x<<16+y (unique ID)
-			map_idx := int64(int64(coords.Z)<<32 + int64(coords.X)<<16 + int64(coords.Y))
+			map_idx := g.getCoordsHash(coords)
 
 			// if there isn't a system at that location
 			if !g.sysHash[map_idx] {
 				// set it as occupied
 				g.sysHash[map_idx] = true
 				// add to list
-				sys[sysCount].Coords = coords
+				//				sys[sysCount].Coords = coords
 				//sys[i].Coords = coords
-				sysCount += 1
+				//			sysCount += 1
+				g.AddSystemAt(coords)
 			} else {
 				// record dupe
 				dupes++
@@ -294,8 +368,9 @@ func (g *Galaxy) AddArms(relRadius float64, numStars int32, numArms int32) {
 		}
 	}
 	fmt.Printf("%d Stars in %d Arms created. dupes %d \n", sysCount, armNum, dupes)
-	g.Systems = append(g.Systems, sys...)
-	g.SysCount += numStars
+	//	g.AddSystems(numStars, sys)
+	//g.Systems = append(g.Systems, sys...)
+	//g.SysCount += numStars
 
 }
 
@@ -309,7 +384,7 @@ func (g *Galaxy) AddShell(relRadius float64, flatten float64, numStars int32) {
 	// per arm
 	var armNum int32
 	var sysCount int32
-	sys := make([]System, int(numStars))
+	//	sys := make([]System, int(numStars))
 	dupes := 0
 	angleIncrease := radius / float64(numStars)
 	//var i int32 = 1
@@ -345,15 +420,15 @@ func (g *Galaxy) AddShell(relRadius float64, flatten float64, numStars int32) {
 		coords = coords.Add(randomSphere)
 
 		// ch3eck for dupes
-		// create an index of z<<32+x<<16+y (unique ID)
-		map_idx := int64(int64(coords.Z)<<32 + int64(coords.X)<<16 + int64(coords.Y))
+		map_idx := g.getCoordsHash(coords)
 
 		// if there isn't a system at that location
 		if !g.sysHash[map_idx] {
 			// set it as occupied
 			g.sysHash[map_idx] = true
 			// add to list
-			sys[sysCount].Coords = coords
+			//sys[sysCount].Coords = coords
+			g.AddSystemAt(coords)
 			//sys[i].Coords = coords
 			sysCount += 1
 		} else {
@@ -367,8 +442,9 @@ func (g *Galaxy) AddShell(relRadius float64, flatten float64, numStars int32) {
 		// add to list
 	}
 	fmt.Printf("%d Stars in %d Arms created. dupes %d \n", sysCount, armNum, dupes)
-	g.Systems = append(g.Systems, sys...)
-	g.SysCount += numStars
+	//	g.AddSystems(numStars, sys)
+	//g.Systems = append(g.Systems, sys...)
+	//g.SysCount += numStars
 
 }
 
@@ -376,17 +452,24 @@ func (g *Galaxy) CreateCenterObject(sys *System) {
 
 	// no huge object, continue with big
 	n := sample(g.StellarSizeTypes.Big.NumCpm)
+	//n := 1
 	switch n {
 	case 1:
 		objidx := sample(g.StellarSizeTypes.Big.Cpm)
-		sys.CenterObject = CenterObject{}
+		//objidx := STAR
+		//sys.CenterObject = CenterObject{}
+		//		fmt.Println("Before CO creation:", sys)
+		sys.CenterObject = new(CenterObject)
 		sb := StellarObj{}
+		//sb := new(StellarObj)
 
+		//		fmt.Println("After CO creation:", sys.CenterObject, sys)
 		switch objidx {
 		case STAR:
 			objidx = sample(g.StarTypes.Cpm)
 			sb.Init(g.StarTypes.Types[objidx])
 			sys.CenterObject.AddCenterObjectSingle(sb)
+			//			fmt.Println("after object added ", sys.CenterObject, sys)
 		case WD:
 			objidx = sample(g.WDTypes.Cpm)
 			sb.Init(g.WDTypes.Types[objidx])
@@ -398,8 +481,10 @@ func (g *Galaxy) CreateCenterObject(sys *System) {
 		// single center object
 	case 2:
 		objidx := []int{sample(g.StellarSizeTypes.Big.Cpm), sample(g.StellarSizeTypes.Big.Cpm)}
-		sys.CenterObject = CenterObject{}
-		sb := [2]StellarObj{}
+		sys.CenterObject = new(CenterObject)
+		//sys.CenterObject = CenterObject{}
+		sb := new([2]StellarObj)
+		//sb := [2]StellarObj{}
 		for i, oi := range objidx {
 			switch oi {
 			case STAR:
@@ -421,7 +506,8 @@ func (g *Galaxy) CreateCenterObject(sys *System) {
 		n = sample(g.StellarSizeTypes.Huge.NumCpm)
 		// Is center object a huge object?
 		if n > 0 {
-			sys.CenterObject = CenterObject{}
+			//	sys.CenterObject = CenterObject{}
+			sys.CenterObject = new(CenterObject)
 			var sb StellarObj = StellarObj{}
 			objidx := sample(g.StellarSizeTypes.Huge.Cpm)
 			switch objidx {
@@ -439,7 +525,8 @@ func (g *Galaxy) CreateCenterObject(sys *System) {
 			// get 1-2 lonely planets
 			// TODO!
 			// at the moment only 1!
-			sys.CenterObject = CenterObject{}
+			//	sys.CenterObject = CenterObject{}
+			sys.CenterObject = new(CenterObject)
 			var sb StellarObj = StellarObj{}
 			objidx := sample(g.StellarSizeTypes.Medium.Cpm)
 			sb.Init(g.PlanetTypes.Types[objidx])
@@ -448,7 +535,8 @@ func (g *Galaxy) CreateCenterObject(sys *System) {
 		}
 	default:
 		// multiple big objects, chaotic system
-		sys.CenterObject = CenterObject{}
+		//sys.CenterObject = CenterObject{}
+		sys.CenterObject = new(CenterObject)
 		sb := []StellarObj{}
 		for i := 0; i < n; i++ {
 			oi := sample(g.StellarSizeTypes.Big.Cpm)
@@ -466,8 +554,8 @@ func (g *Galaxy) CreateCenterObject(sys *System) {
 
 		}
 		sys.CenterObject.AddCenterObjectMulti(sb)
-
 	}
+
 }
 
 func (galaxy *Galaxy) LoadFromFile(filepath string) {
@@ -477,16 +565,12 @@ func (galaxy *Galaxy) LoadFromFile(filepath string) {
 		NumSystems  int32 `json:"num_systems"`
 		RandSeed    int   `json:"rand_seed"`
 	}
-	// temp structs to read json file
-	type Coordinates struct {
-		X int16 `json:"x"`
-		Y int16 `json:"y"`
-		Z int16 `json:"z"`
-	}
+
 	type Stars struct {
-		Coords   Coordinates `json:"coords"`
-		Lum      float64     `json:"lum"`
-		Colorstr string      `json:"color"`
+		//Coords   Coordinates `json:"coords"`
+		Coords   CoordsI16 `json:"coords"`
+		Lum      float64   `json:"lum"`
+		Colorstr string    `json:"color"`
 	}
 
 	meta := Metadata{}
@@ -499,7 +583,7 @@ func (galaxy *Galaxy) LoadFromFile(filepath string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	galaxy.SysCount = meta.NumSystems
+	//	galaxy.SysCount = meta.NumSystems
 	fmt.Printf("File Version: %d, NumSystems %d, RandSeed %d\n", meta.FileVersion, meta.NumSystems, meta.RandSeed)
 
 	file, err := os.Open(filepath + starfile)
@@ -509,25 +593,25 @@ func (galaxy *Galaxy) LoadFromFile(filepath string) {
 
 	// start importing the Galaxy
 	stars := make([]Stars, meta.NumSystems)
-	galaxy.Systems = make([]System, meta.NumSystems)
-	//	stars := []Stars{}
 
 	byteValue, _ := ioutil.ReadAll(file)
 	json.Unmarshal(byteValue, &stars)
 
-	for i, s := range stars {
+	for _, s := range stars {
+		// look for max size
+		coords := CoordsI16{X: s.Coords.X, Y: s.Coords.Y, Z: s.Coords.Z}
+
 		if s.Coords.X > galaxy.Radius {
 			galaxy.Radius = s.Coords.X
 		}
 		if s.Coords.Z > galaxy.Radius {
 			galaxy.Radius = s.Coords.Z
 		}
-		//		fmt.Println(s.Coords)
-		galaxy.Systems[i].SetColor(s.Colorstr, s.Lum)
-		galaxy.Systems[i].Coords.X = s.Coords.X
-		galaxy.Systems[i].Coords.Y = s.Coords.Y
-		galaxy.Systems[i].Coords.Z = s.Coords.Z
-		//		stars[i].setColor()
+		// add system.
+		//newsys := galaxy.AddSystemAt(s.Coords)
+		newsys := galaxy.AddSystemAt(coords)
+		newsys.SetColor(s.Colorstr, s.Lum)
+		//galaxy.Systems[len(galaxy.Systems)-1].SetColor(s.Colorstr, s.Lum)
 	}
 	fmt.Println("Galaxy radius(Target/actual): ", galaxy.RadiusTarget, galaxy.Radius)
 }

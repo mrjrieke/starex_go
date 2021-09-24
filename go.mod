@@ -16,6 +16,7 @@ require (
 	github.com/inkyblackness/imgui-go v1.12.0 // indirect
 	github.com/inkyblackness/imgui-go-examples v1.6.0 // indirect
 	github.com/inkyblackness/imgui-go/v4 v4.2.0 // indirect
+	github.com/kyroy/kdtree v0.0.0-20200419114247-70830f883f1d // indirect
 	github.com/ory/dockertest v3.3.4+incompatible // indirect
 	github.com/shibukawa/glfw v0.0.0-20151220152738-6574577f7b9c // indirect
 	github.com/shibukawa/glfw-2 v0.0.0-20151216165810-0dcf1bf50b3f // indirect

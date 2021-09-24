@@ -111,7 +111,7 @@ type Gui struct {
 	BloomActive          bool
 
 	uStencilOverlay bool
-	overlayTexBuf  uint32
+	overlayTexBuf   uint32
 
 	// logging
 	rawLog      *bytes.Buffer
@@ -582,6 +582,7 @@ func (g *Gui) PrepareScene() {
 	// load data into displayable scene
 	g.Scene.LoadData(g.Galaxy, float32(g.Galaxy.Radius))
 
+
 	// ------------------------------------------------
 	// for bloom:
 	// https://github.com/JoeyDeVries/LearnOpenGL/blob/master/src/5.advanced_lighting/7.bloom/bloom.cpp
@@ -623,7 +624,6 @@ func (g *Gui) PrepareScene() {
 
 	// perspective stuff
 	g.Persp = Perspective{float32(g.Win.Width) / float32(g.Win.Height), SceneNear, SceneFar, 0}
-	//g.Persp = Perspective{float32(1), SceneNear, SceneFar, 0}
 	g.Persp.SetViewAngleDeg(CamViewAngle)
 
 	// ----- TRY for texture

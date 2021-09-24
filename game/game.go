@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
-	//	"math/rand"
+	"math/rand"
 
 	"gopkg.in/yaml.v3"
 
@@ -66,14 +67,56 @@ func (g *Game) Init() {
 	// TODO: Load should also be done here, and not directly in the GUI
 	g.Galaxy.Init()
 	g.Gui.Init()
-	g.Gui.Galaxy = &g.Galaxy
+
+	rand.Seed(int64(time.Now().Nanosecond()))
 
 	// either Create()...
 	// seems like the limit for a solid 60fps display on my current HW is around 700k-1M stars
 	// depnding on the blur steps :)
-	g.Galaxy.Create(300_000, 20000, 2000)
+	g.Galaxy.Create(200_000, 20000, 2000)
+	//g.Galaxy.Create(100, 20000, 2000)
 	// ... or LoadFromFile()
 	//g.Galaxy.LoadFromFile("saves/galaxy2")
+
+	// --- testing KDTree stuff
+	g.Gui.Galaxy = &g.Galaxy
+
+	// ---- Some kdtree tests ------
+	// -- star lookup
+	// ---- Star lookup via KNN:
+	// Duration on 200k stars: 100us per lookup
+	// Duration on 500k stars: 125us per lookup
+	// ---- Star lookup via hash:
+	// Duration on 200k stars: 408ns per lookup
+	// Duration on 500k stars: 385ns per lookup
+	// --- This could be quicker via x/y/z key lookup, but also more space consuming
+	// pretty constant.
+
+	fmt.Println(len(g.Galaxy.Systems), g.Galaxy.SysCount)
+
+	i, s := g.Galaxy.GetRandomSystem()
+	g.Galaxy.HilightedSystems = append(g.Galaxy.HilightedSystems, i)
+	fmt.Println("Random System:", i, s)
+
+	fmt.Println("Nearest systems:")
+	nearest := g.Galaxy.GetKNearestSystems(s, 2)
+	for i := range nearest {
+		fmt.Println(nearest[i])
+	}
+	fmt.Println("Range search:")
+	inRange := g.Galaxy.GetSystemsInRadius(s, 1000)
+
+	// for each coord in range
+	for i := range inRange {
+		// get corresponding system
+		sys := g.Galaxy.GetSysByCoords(inRange[i])
+		// color it
+		sys.SetColor("#cc00cc", sys.CenterObject.Lum())
+		//sys.SetColor("#cc00cc", 10000)
+		//			fmt.Println(inRange[i])
+	}
+	// color random star (after coloring the range, as the star is part of the range)
+	g.Galaxy.Systems[i].SetColor("#ff00ff", 100000)
 
 	g.Gui.PrepareScene()
 
