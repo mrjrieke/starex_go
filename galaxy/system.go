@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+
+	"github.com/Jest0r/starex_go/coords"
 )
 
 const (
@@ -21,10 +23,10 @@ type Color struct {
 
 type System struct {
 	CenterObject *CenterObject
-	Lum      float64 `json:"lum"`
-	Colorstr string  `json:"color"`
-	Coords   CoordsI16
-	Color    Color
+	Lum          float64 `json:"lum"`
+	Colorstr     string  `json:"color"`
+	Coords       coords.CoordsI16
+	Color        Color
 }
 
 // to satisfy kdtree interface
@@ -34,7 +36,7 @@ func (s System) Dimensions() int {
 
 // to satisfy kdtree interface
 func (s System) Dimension(i int) float64 {
-	switch (i) {
+	switch i {
 	case 0:
 		return float64(s.Coords.X)
 	case 1:

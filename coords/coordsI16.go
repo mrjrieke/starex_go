@@ -1,16 +1,11 @@
-package galaxy
+package coords
 
 import (
 	"math"
 )
 
-var TrigBuf TrigBuffer
+//var TrigBuf TrigBuffer
 
-type CoordsPolar struct {
-	L float64
-	A float64
-	B float64
-}
 
 // Simple 3D coordinate system in 16bit integer
 type CoordsI16 struct {
@@ -68,13 +63,17 @@ func (c *CoordsI16) DistanceSq(a CoordsI16) float64 {
 func (c *CoordsI16) FromPolar(p CoordsPolar) {
 	var Sin func(float64) float64
 	var Cos func(float64) float64
-	if TrigBuf.Active {
-		Sin = TrigBuf.Sin
-		Cos = TrigBuf.Cos
-	} else {
-		Sin = math.Sin
-		Cos = math.Cos
-	}
+	/*
+		if TrigBuf.Active {
+			Sin = TrigBuf.Sin
+			Cos = TrigBuf.Cos
+		} else {
+			Sin = math.Sin
+			Cos = math.Cos
+		}
+	*/
+	Sin = math.Sin
+	Cos = math.Cos
 
 	lenXY := p.L * Cos(p.B)
 	c.Z = int16(p.L * Sin(p.B))

@@ -11,6 +11,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/Jest0r/starex_go/coords"
+
 	"github.com/kyroy/kdtree"
 	"github.com/kyroy/kdtree/kdrange"
 )
@@ -110,11 +112,11 @@ func (g *Galaxy) Init() {
 	//	rand.Seed(0)
 }
 
-func (g *Galaxy) AddSystemAt(coords CoordsI16) *System {
+func (g *Galaxy) AddSystemAt(c coords.CoordsI16) *System {
 	// get new object
 	sys := new(System)
 	// new coords struct
-	sys.Coords = coords
+	sys.Coords = c
 
 	// ---- record system into look up structures ----
 	// append System to list of systems
@@ -143,11 +145,11 @@ func (g *Galaxy) AddSystemAt(coords CoordsI16) *System {
 	return sys
 }
 
-func (g *Galaxy) getCoordsHash(coords CoordsI16) int64 {
+func (g *Galaxy) getCoordsHash(coords coords.CoordsI16) int64 {
 	return int64(int64(coords.Z)<<32 + int64(coords.X)<<16 + int64(coords.Y))
 }
 
-func (g *Galaxy) GetSysByCoords(c CoordsI16) *System {
+func (g *Galaxy) GetSysByCoords(c coords.CoordsI16) *System {
 	cHash := g.getCoordsHash(c)
 
 	if g.sysHash[cHash] {
@@ -169,9 +171,9 @@ func (g *Galaxy) GetKNearestSystems(s *System, n int) []kdtree.Point {
 	return points
 }
 
-func (g *Galaxy) GetSystemsInRadius(s *System, r int16) []CoordsI16 {
+func (g *Galaxy) GetSystemsInRadius(s *System, r int16) []coords.CoordsI16 {
 	radSquare := float64(r) * float64(r)
-	var inRange []CoordsI16
+	var inRange []coords.CoordsI16
 
 	pointsInSquare := (g.Tree.RangeSearch(kdrange.New(
 		float64(s.Coords.X-r), float64(s.Coords.X+r),
@@ -179,7 +181,7 @@ func (g *Galaxy) GetSystemsInRadius(s *System, r int16) []CoordsI16 {
 		float64(s.Coords.Z-r), float64(s.Coords.Z+r))))
 
 	for _, pt := range pointsInSquare {
-		sys := CoordsI16{X: int16(pt.Dimension(0)), Y: int16(pt.Dimension(1)), Z: int16(pt.Dimension(2))}
+		sys := coords.CoordsI16{X: int16(pt.Dimension(0)), Y: int16(pt.Dimension(1)), Z: int16(pt.Dimension(2))}
 		if s.Coords.DistanceSq(sys) <= radSquare {
 			inRange = append(inRange, sys)
 		}
@@ -257,8 +259,8 @@ func (g *Galaxy) AddDisc(relRadius float64, relThickness float64, numStars int32
 	var s int32
 	dupes := 0
 	for s < numStars {
-		coords := CoordsI16{}
-		pc := CoordsPolar{}
+		pos := coords.CoordsI16{}
+		pc := coords.CoordsPolar{}
 		// ! ATTENTION ! radius is the sigma of th this could lead to values > maxint16 - should we check for this before? this could lead to values > maxint16 - should we check for this before? this could lead to values > maxint16 - should we check for this before?e normal variate. So 31.x% of all the stars are OUTSIDE the radius
 		// radius is th
 		pc.L = rand.NormFloat64() * halfRadius
@@ -266,11 +268,11 @@ func (g *Galaxy) AddDisc(relRadius float64, relThickness float64, numStars int32
 		pc.B = rand.Float64() * twopi
 		// convert to real coords
 		// !QUESTION!  this could lead to values > maxint16 - should we check for this before?
-		coords.FromPolar(pc)
+		pos.FromPolar(pc)
 		// flatten ball
-		coords.Z = int16(float64(coords.Z) / flatten)
+		pos.Z = int16(float64(pos.Z) / flatten)
 
-		map_idx := g.getCoordsHash(coords)
+		map_idx := g.getCoordsHash(pos)
 
 		// if there isn't a system at that location
 		if !g.sysHash[map_idx] {
@@ -279,7 +281,7 @@ func (g *Galaxy) AddDisc(relRadius float64, relThickness float64, numStars int32
 			g.sysHash[map_idx] = true
 			// add to list
 			//	sys[s].Coords = coords
-			g.AddSystemAt(coords)
+			g.AddSystemAt(pos)
 			/// and move on
 			s++
 		} else {
@@ -320,15 +322,15 @@ func (g *Galaxy) AddArms(relRadius float64, numStars int32, numArms int32) {
 				fmt.Println("ERROR - too many stars! Terminating arm generation")
 				break
 			}
-			coords := CoordsI16{}
+			pos := coords.CoordsI16{}
 			// offset for the star
-			randomSphere := CoordsI16{}
-			pc := CoordsPolar{}
+			randomSphere := coords.CoordsI16{}
+			pc := coords.CoordsPolar{}
 
 			// set where on the way to the edge we are
 			pc.L += i
 			pc.A = armAngle + armStartRad
-			coords.FromPolar(pc)
+			pos.FromPolar(pc)
 
 			// get random ball within a given radius for the star
 			randomSphereRadius := ((1 - pc.L/radius) * armsDiff) + float64(g.ArmsOuterRad)
@@ -342,10 +344,10 @@ func (g *Galaxy) AddArms(relRadius float64, numStars int32, numArms int32) {
 			randomSphere.Z = int16(float64(randomSphere.Z) * g.ArmsEllipseFactor)
 
 			// Add random sphere to
-			coords = coords.Add(randomSphere)
+			pos = pos.Add(randomSphere)
 
 			// ch3eck for dupes
-			map_idx := g.getCoordsHash(coords)
+			map_idx := g.getCoordsHash(pos)
 
 			// if there isn't a system at that location
 			if !g.sysHash[map_idx] {
@@ -355,7 +357,7 @@ func (g *Galaxy) AddArms(relRadius float64, numStars int32, numArms int32) {
 				//				sys[sysCount].Coords = coords
 				//sys[i].Coords = coords
 				//			sysCount += 1
-				g.AddSystemAt(coords)
+				g.AddSystemAt(pos)
 			} else {
 				// record dupe
 				dupes++
@@ -392,18 +394,18 @@ func (g *Galaxy) AddShell(relRadius float64, flatten float64, numStars int32) {
 	var armAngle float64
 
 	for i < radius {
-		coords := CoordsI16{}
+		pos := coords.CoordsI16{}
 		// offset for the star
-		randomSphere := CoordsI16{}
-		pc := CoordsPolar{}
+		randomSphere := coords.CoordsI16{}
+		pc := coords.CoordsPolar{}
 
 		// set where on the way to the edge we are
 		pc.L += i
 		pc.B = rand.Float64() * twopi
 		pc.A = float64(armAngle)
 
-		coords.FromPolar(pc)
-		coords.Z = int16(float64(coords.Z) * flatten)
+		pos.FromPolar(pc)
+		pos.Z = int16(float64(pos.Z) * flatten)
 
 		// get random ball within a given radius for the star
 		randomSphereRadius := ((1 - pc.L/radius) * armsDiff) + float64(g.ArmsOuterRad)
@@ -417,10 +419,10 @@ func (g *Galaxy) AddShell(relRadius float64, flatten float64, numStars int32) {
 		randomSphere.Z = int16(float64(randomSphere.Z))
 
 		// Add random sphere to
-		coords = coords.Add(randomSphere)
+		pos = pos.Add(randomSphere)
 
 		// ch3eck for dupes
-		map_idx := g.getCoordsHash(coords)
+		map_idx := g.getCoordsHash(pos)
 
 		// if there isn't a system at that location
 		if !g.sysHash[map_idx] {
@@ -428,7 +430,7 @@ func (g *Galaxy) AddShell(relRadius float64, flatten float64, numStars int32) {
 			g.sysHash[map_idx] = true
 			// add to list
 			//sys[sysCount].Coords = coords
-			g.AddSystemAt(coords)
+			g.AddSystemAt(pos)
 			//sys[i].Coords = coords
 			sysCount += 1
 		} else {
@@ -568,9 +570,9 @@ func (galaxy *Galaxy) LoadFromFile(filepath string) {
 
 	type Stars struct {
 		//Coords   Coordinates `json:"coords"`
-		Coords   CoordsI16 `json:"coords"`
-		Lum      float64   `json:"lum"`
-		Colorstr string    `json:"color"`
+		Coords   coords.CoordsI16 `json:"coords"`
+		Lum      float64          `json:"lum"`
+		Colorstr string           `json:"color"`
 	}
 
 	meta := Metadata{}
@@ -599,7 +601,7 @@ func (galaxy *Galaxy) LoadFromFile(filepath string) {
 
 	for _, s := range stars {
 		// look for max size
-		coords := CoordsI16{X: s.Coords.X, Y: s.Coords.Y, Z: s.Coords.Z}
+		pos := coords.CoordsI16{X: s.Coords.X, Y: s.Coords.Y, Z: s.Coords.Z}
 
 		if s.Coords.X > galaxy.Radius {
 			galaxy.Radius = s.Coords.X
@@ -609,7 +611,7 @@ func (galaxy *Galaxy) LoadFromFile(filepath string) {
 		}
 		// add system.
 		//newsys := galaxy.AddSystemAt(s.Coords)
-		newsys := galaxy.AddSystemAt(coords)
+		newsys := galaxy.AddSystemAt(pos)
 		newsys.SetColor(s.Colorstr, s.Lum)
 		//galaxy.Systems[len(galaxy.Systems)-1].SetColor(s.Colorstr, s.Lum)
 	}
